@@ -664,12 +664,49 @@ reconfigure_fifo_irq_restore:
 	return err;
 }
 
-int lsm6ds3_set_drdy_irq(struct lsm6ds3_sensor_data *sdata)
+int lsm6ds3_set_drdy_irq(struct lsm6ds3_sensor_data *sdata, bool state)
 {
-	u8 value = LSM6DS3_INT1_FTH | LSM6DS3_INT1_FULL;
+	u8 reg_addr, mask, value;
 
-	return sdata->cdata->tf->write(sdata->cdata, LSM6DS3_INT1_ADDR, 1, &value,
-																	true);
+	if (state)
+		value = LSM6DS3_EN_BIT;
+	else
+		value = LSM6DS3_DIS_BIT;
+
+	switch (sdata->sindex) {
+	case LSM6DS3_ACCEL:
+		if (sdata->cdata->sensors[LSM6DS3_GYRO].enabled)
+			return 0;
+
+		reg_addr = LSM6DS3_INT1_ADDR;
+		mask = LSM6DS3_FIFO_THR_IRQ_MASK;
+		break;
+	case LSM6DS3_GYRO:
+		if (sdata->cdata->sensors[LSM6DS3_ACCEL].enabled)
+			return 0;
+
+		reg_addr = LSM6DS3_INT1_ADDR;
+		mask = LSM6DS3_FIFO_THR_IRQ_MASK;
+		break;
+	case LSM6DS3_SIGN_MOTION:
+		reg_addr = LSM6DS3_INT1_ADDR;
+		mask = LSM6DS3_SIGN_MOTION_DRDY_IRQ_MASK;
+		break;
+	case LSM6DS3_STEP_COUNTER:
+	case LSM6DS3_STEP_DETECTOR:
+		reg_addr = LSM6DS3_INT1_ADDR;
+		mask = LSM6DS3_STEP_DETECTOR_DRDY_IRQ_MASK;
+		break;
+	case LSM6DS3_TILT:
+		reg_addr = LSM6DS3_MD1_ADDR;
+		mask = LSM6DS3_TILT_DRDY_IRQ_MASK;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return lsm6ds3_write_data_with_mask(sdata->cdata, reg_addr, mask, value,
+																		true);
 }
 
 static int lsm6ds3_set_fs(struct lsm6ds3_sensor_data *sdata, u32 gain)
@@ -1056,24 +1093,21 @@ static int lsm6ds3_init_sensors(struct lsm6ds3_data *cdata)
 				return err;
 		}
 	}
-	err = lsm6ds3_reconfigure_fifo(cdata, true);
-	if (err < 0)
-		return err;
 
 	cdata->gyro_selftest_status = 0;
 	cdata->accel_selftest_status = 0;
 
-	err = lsm6ds3_write_data_with_mask(cdata, LSM6DS3_LIR_ADDR,
-				LSM6DS3_LIR_MASK, LSM6DS3_EN_BIT, true);
+	err = lsm6ds3_write_data_with_mask(cdata,
+					LSM6DS3_LIR_ADDR,
+					LSM6DS3_LIR_MASK,
+					LSM6DS3_EN_BIT, true);
 	if (err < 0)
 		return err;
 
-	err = lsm6ds3_write_data_with_mask(cdata, LSM6DS3_BDU_ADDR,
-				LSM6DS3_BDU_MASK, LSM6DS3_EN_BIT, true);
-	if (err < 0)
-		return err;
-
-	err = lsm6ds3_set_drdy_irq(sdata);
+	err = lsm6ds3_write_data_with_mask(cdata,
+					LSM6DS3_BDU_ADDR,
+					LSM6DS3_BDU_MASK,
+					LSM6DS3_EN_BIT, true);
 	if (err < 0)
 		return err;
 
