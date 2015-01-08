@@ -909,14 +909,6 @@ static int lsm6ds3_enable_sensors(struct lsm6ds3_sensor_data *sdata)
 
 		break;
 	case LSM6DS3_STEP_COUNTER:
-		err = lsm6ds3_write_data_with_mask(sdata->cdata,
-							LSM6DS3_TIMER_EN_ADDR,
-							LSM6DS3_TIMER_EN_MASK,
-							LSM6DS3_EN_BIT, true);
-		if (err < 0)
-			return err;
-
-		break;
 	case LSM6DS3_STEP_DETECTOR:
 		err = lsm6ds3_enable_pedometer(sdata, true);
 		if (err < 0)
@@ -1001,12 +993,6 @@ static int lsm6ds3_disable_sensors(struct lsm6ds3_sensor_data *sdata)
 
 		break;
 	case LSM6DS3_STEP_COUNTER:
-		err = lsm6ds3_write_data_with_mask(sdata->cdata,
-							LSM6DS3_TIMER_EN_ADDR,
-							LSM6DS3_TIMER_EN_MASK,
-							LSM6DS3_DIS_BIT, true);
-		if (err < 0)
-			return err;
 	case LSM6DS3_STEP_DETECTOR:
 		err = lsm6ds3_enable_pedometer(sdata, false);
 		if (err < 0)
