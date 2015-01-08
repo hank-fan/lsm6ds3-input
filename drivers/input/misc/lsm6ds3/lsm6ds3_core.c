@@ -779,10 +779,12 @@ static void lsm6ds3_irq_management(struct work_struct *input_work)
 		lsm6ds3_read_fifo(cdata, false);
 
 	if (src_value & LSM6DS3_SRC_SIGN_MOTION_DATA_AVL) {
+		cdata->sensors[LSM6DS3_SIGN_MOTION].timestamp = cdata->timestamp;
 		printk("Significat Motion data available. Implement pushing event function!!!!\n\n");
 	}
 
 	if (src_value & LSM6DS3_SRC_STEP_DETECTOR_DATA_AVL) {
+		cdata->sensors[LSM6DS3_STEP_DETECTOR].timestamp = cdata->timestamp;
 		printk("Step Detector data available. Implement pushing event function!!!!\n\n");
 	}
 
@@ -792,6 +794,7 @@ static void lsm6ds3_irq_management(struct work_struct *input_work)
 	}
 
 	if (src_value & LSM6DS3_SRC_TILT_DATA_AVL) {
+		cdata->sensors[LSM6DS3_TILT].timestamp = cdata->timestamp;
 		printk("Tilt data available. Implement pushing event function!!!!\n\n");
 	}
 
