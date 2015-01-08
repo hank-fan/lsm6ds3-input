@@ -871,6 +871,9 @@ static int lsm6ds3_enable_sensors(struct lsm6ds3_sensor_data *sdata)
 {
 	int err, i;
 
+	if (sdata->enabled)
+		return 0;
+
 	switch (sdata->sindex) {
 	case LSM6DS3_ACCEL:
 	case LSM6DS3_GYRO:
@@ -954,6 +957,9 @@ static int lsm6ds3_enable_sensors(struct lsm6ds3_sensor_data *sdata)
 static int lsm6ds3_disable_sensors(struct lsm6ds3_sensor_data *sdata)
 {
 	int err;
+
+	if (!sdata->enabled)
+		return 0;
 
 	switch (sdata->sindex) {
 	case LSM6DS3_ACCEL:
