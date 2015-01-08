@@ -781,7 +781,7 @@ static void lsm6ds3_irq_management(struct work_struct *input_work)
 	return;
 }
 
-int lsm6ds3_allocate_triggers(struct lsm6ds3_data *cdata)
+int lsm6ds3_allocate_workqueue(struct lsm6ds3_data *cdata)
 {
 	int err;
 
@@ -1134,7 +1134,6 @@ static int lsm6ds3_init_sensors(struct lsm6ds3_data *cdata)
 		return err;
 
 	mutex_lock(&cdata->bank_registers_lock);
-
 	err = lsm6ds3_write_data_with_mask(sdata->cdata,
 					LSM6DS3_FUNC_CFG_ACCESS_ADDR,
 					LSM6DS3_FUNC_CFG_REG2_MASK,
@@ -1144,7 +1143,8 @@ static int lsm6ds3_init_sensors(struct lsm6ds3_data *cdata)
 
 	err = sdata->cdata->tf->write(sdata->cdata,
 					LSM6DS3_STEP_COUNTER_DURATION_ADDR,
-					1, &default_reg_value, false);
+					1,
+					&default_reg_value, false);
 	if (err < 0)
 		goto lsm6ds3_init_sensor_mutex_unlock;
 
@@ -1466,7 +1466,7 @@ int lsm6ds3_common_probe(struct lsm6ds3_data *cdata, int irq, u16 bustype)
 	}
 
 	if (irq > 0) {
-		err = lsm6ds3_allocate_triggers(cdata);
+		err = lsm6ds3_allocate_workqueue(cdata);
 		if (err < 0)
 			return err;
 	}
