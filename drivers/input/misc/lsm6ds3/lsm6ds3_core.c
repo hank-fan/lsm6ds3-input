@@ -330,11 +330,12 @@ static int lsm6ds3_input_init(struct lsm6ds3_sensor_data *sdata, u16 bustype,
 	sdata->input_dev->name = description;
 	input_set_drvdata(sdata->input_dev, sdata);
 
-	set_bit(EV_ABS, sdata->input_dev->evbit);
-
-	input_set_abs_params(sdata->input_dev, ABS_X, -1000, 1000, FUZZ, FLAT);
-	input_set_abs_params(sdata->input_dev, ABS_Y, -1000, 1000, FUZZ, FLAT);
-	input_set_abs_params(sdata->input_dev, ABS_Z, -1000, 1000, FUZZ, FLAT);
+	__set_bit(INPUT_EVENT_TYPE, sdata->input_dev->evbit );
+	__set_bit(INPUT_EVENT_TIME_MSB, sdata->input_dev->mscbit);
+	__set_bit(INPUT_EVENT_TIME_LSB, sdata->input_dev->mscbit);
+	__set_bit(INPUT_EVENT_X, sdata->input_dev->mscbit);
+	__set_bit(INPUT_EVENT_Y, sdata->input_dev->mscbit);
+	__set_bit(INPUT_EVENT_Z, sdata->input_dev->mscbit);
 
 	err = input_register_device(sdata->input_dev);
 	if (err) {
@@ -351,12 +352,36 @@ static void lsm6ds3_input_cleanup(struct lsm6ds3_sensor_data *sdata)
 	input_free_device(sdata->input_dev);
 }
 
-static void lsm6ds3_report_values(struct lsm6ds3_sensor_data *sdata, s32 *xyz)
+static void lsm6ds3_report_3axes_event(struct lsm6ds3_sensor_data *sdata,
+													s32 *xyz, int64_t timestamp)
 {
-	input_report_abs(sdata->input_dev, ABS_X, xyz[0]);
-	input_report_abs(sdata->input_dev, ABS_Y, xyz[1]);
-	input_report_abs(sdata->input_dev, ABS_Z, xyz[2]);
-	input_sync(sdata->input_dev);
+	struct input_dev  * input  	= sdata->input_dev;
+
+	if (!sdata->enabled)
+		return;
+
+	input_event(input, INPUT_EVENT_TYPE, INPUT_EVENT_X, xyz[0]);
+	input_event(input, INPUT_EVENT_TYPE, INPUT_EVENT_Y, xyz[1]);
+	input_event(input, INPUT_EVENT_TYPE, INPUT_EVENT_Z, xyz[2]);
+	input_event(input, INPUT_EVENT_TYPE, INPUT_EVENT_TIME_MSB, timestamp >> 32);
+	input_event(input, INPUT_EVENT_TYPE, INPUT_EVENT_TIME_LSB,
+														timestamp & 0xffffffff);
+	input_sync(input);
+}
+
+static void lsm6ds3_report_single_event(struct lsm6ds3_sensor_data *sdata,
+													s32 data, int64_t timestamp)
+{
+	struct input_dev  * input  	= sdata->input_dev;
+
+	if (!sdata->enabled)
+		return;
+
+	input_event(input, INPUT_EVENT_TYPE, INPUT_EVENT_X, data);
+	input_event(input, INPUT_EVENT_TYPE, INPUT_EVENT_TIME_MSB, timestamp >> 32);
+	input_event(input, INPUT_EVENT_TYPE, INPUT_EVENT_TIME_LSB,
+														timestamp & 0xffffffff);
+	input_sync(input);
 }
 
 static void lsm6ds3_push_data_with_timestamp(struct lsm6ds3_sensor_data *sdata,
@@ -377,7 +402,7 @@ static void lsm6ds3_push_data_with_timestamp(struct lsm6ds3_sensor_data *sdata,
 
 	dev_info(sdata->cdata->dev, "push data %s\t%d\t[%d,\t%d,\t%d]\t\t timestamp = %ul",
 						sdata->name, offset / 6, data[0], data[1], data[2], timestamp);
-	lsm6ds3_report_values(sdata, data);
+	lsm6ds3_report_3axes_event(sdata, data, timestamp);
 }
 
 static void lsm6ds3_parse_fifo_data(struct lsm6ds3_data *cdata, u16 read_len)

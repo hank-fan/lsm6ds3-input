@@ -85,7 +85,14 @@ enum fifo_mode {
 #define GYR_OUT_MAX	((10000)*(SENSITIVITY_GYR_2000)) /** max value gyr [10udps] */
 #define GYR_OUT_MIN	((-10000)*(SENSITIVITY_GYR_2000)) /** min value gyr [10udps] */
 
-#define FIFO_SIZE_BYTE			(8 * 1024)
+#define FIFO_SIZE_BYTE				(8 * 1024)
+
+#define INPUT_EVENT_TYPE			EV_MSC
+#define INPUT_EVENT_X				MSC_SERIAL
+#define INPUT_EVENT_Y				MSC_PULSELED
+#define INPUT_EVENT_Z				MSC_GESTURE
+#define INPUT_EVENT_TIME_MSB		MSC_SCAN
+#define INPUT_EVENT_TIME_LSB		MSC_MAX
 
 #define to_dev(obj) container_of(obj, struct device, kobj)
 
