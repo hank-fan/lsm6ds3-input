@@ -1428,12 +1428,6 @@ int lsm6ds3_common_probe(struct lsm6ds3_data *cdata, int irq, u16 bustype)
 		return -ENODEV;
 	}
 
-	cdata->fifo_data_buffer = kmalloc(FIFO_SIZE_BYTE, GFP_KERNEL);
-	if (!cdata->fifo_data_buffer)
-			return -ENOMEM;
-
-	cdata->fifo_data_size = FIFO_SIZE_BYTE;
-
 	mutex_init(&cdata->lock);
 
 	if (irq > 0) {
@@ -1493,7 +1487,12 @@ int lsm6ds3_common_probe(struct lsm6ds3_data *cdata, int irq, u16 bustype)
 		if (err < 0)
 			return err;
 	}
-	/* TODO: error resource recovery */
+
+	cdata->fifo_data_buffer = kmalloc(FIFO_SIZE_BYTE, GFP_KERNEL);
+	if (!cdata->fifo_data_buffer)
+			return -ENOMEM;
+
+	cdata->fifo_data_size = FIFO_SIZE_BYTE;
 
 	dev_info(cdata->dev, "%s: probed\n", LSM6DS3_ACC_GYR_DEV_NAME);
 	return 0;
