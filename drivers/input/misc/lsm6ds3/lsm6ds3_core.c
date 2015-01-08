@@ -1290,12 +1290,28 @@ static ssize_t set_fifo_length(struct device *dev,
 	return count;
 }
 
+static ssize_t reset_steps(struct device *dev,
+				struct device_attribute *attr, const char *buf, size_t count)
+{
+	int err;
+	unsigned int reset;
+	struct lsm6ds3_sensor_data *sdata = dev_get_drvdata(dev);
+
+	err = kstrtoint(buf, 10, &reset);
+	if (err < 0)
+		return err;
+
+	lsm6ds3_reset_steps(sdata->cdata);
+
+	return count;
+}
 
 static DEVICE_ATTR(enable, S_IWUSR | S_IRUGO, get_enable, set_enable);
 static DEVICE_ATTR(polling_rate, S_IWUSR | S_IRUGO, get_polling_rate,
 															set_polling_rate);
 static DEVICE_ATTR(fifo_length, S_IWUSR | S_IRUGO, get_fifo_length,
 															set_fifo_length);
+static DEVICE_ATTR(reset_steps, S_IWUSR, NULL, reset_steps);
 
 static struct attribute *lsm6ds3_accel_attribute[] = {
 	&dev_attr_enable.attr,
@@ -1320,6 +1336,7 @@ static struct attribute *lsm6ds3_sign_m_attribute[] = {
 static struct attribute *lsm6ds3_step_c_attribute[] = {
 	&dev_attr_enable.attr,
 	&dev_attr_fifo_length.attr,
+	&dev_attr_reset_steps.attr,
 	NULL,
 };
 
