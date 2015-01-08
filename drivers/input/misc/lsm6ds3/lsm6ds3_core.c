@@ -900,7 +900,16 @@ static int lsm6ds3_enable_sensors(struct lsm6ds3_sensor_data *sdata)
 	if (err < 0)
 		return err;
 
-	sdata->enabled = 1;
+
+	err = lsm6ds3_set_drdy_irq(sdata, true);
+	if (err < 0)
+		return err;
+
+	sdata->enabled = true;
+
+	err = lsm6ds3_reconfigure_fifo(sdata->cdata, true);
+	if (err < 0)
+		return err;
 
 	return 0;
 }
@@ -978,7 +987,15 @@ static int lsm6ds3_disable_sensors(struct lsm6ds3_sensor_data *sdata)
 	if (err < 0)
 		return err;
 
+	err = lsm6ds3_set_drdy_irq(sdata, false);
+	if (err < 0)
+		return err;
+
 	sdata->enabled = false;
+
+	err = lsm6ds3_reconfigure_fifo(sdata->cdata, true);
+	if (err < 0)
+		return err;
 
 	return 0;
 }
@@ -1103,10 +1120,11 @@ static int lsm6ds3_init_sensors(struct lsm6ds3_data *cdata)
 					LSM6DS3_DIS_BIT, false);
 	if (err < 0)
 		goto lsm6ds3_init_sensor_mutex_unlock;
-
 	mutex_unlock(&cdata->bank_registers_lock);
 
-	sdata->c_odr = 0;
+	err = lsm6ds3_reconfigure_fifo(cdata, false);
+	if (err < 0)
+		return err;
 
 	return 0;
 
