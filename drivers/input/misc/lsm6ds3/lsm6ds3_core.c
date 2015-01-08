@@ -480,6 +480,23 @@ void lsm6ds3_read_fifo(struct lsm6ds3_data *cdata, bool check_fifo_len)
 	lsm6ds3_parse_fifo_data(cdata, read_len);
 }
 
+s32 lsm6ds3_manage_step_counter_event(struct lsm6ds3_sensor_data *sdata)
+{
+	int err;
+	u32 steps = 0;
+
+	err = sdata->cdata->tf->read(sdata->cdata,
+									LSM6DS3_STEP_COUNTER_OUT_L_ADDR,
+									2,
+									(u8 *)&steps, true);
+	if (err < 0)
+		return err;
+
+	lsm6ds3_report_single_event(sdata, steps, sdata->timestamp);
+
+	return 0;
+}
+
 static int lsm6ds3_set_fifo_enable(struct lsm6ds3_data *cdata, bool status)
 {
 	u8 reg_value;
@@ -770,7 +787,8 @@ static void lsm6ds3_irq_management(struct work_struct *input_work)
 	}
 
 	if (src_value & LSM6DS3_SRC_STEP_COUNTER_DATA_AVL) {
-		printk("Step Counter data available. Implement pushing event function!!!!\n\n");
+		cdata->sensors[LSM6DS3_STEP_COUNTER].timestamp = cdata->timestamp;
+		lsm6ds3_manage_step_counter_event(&cdata->sensors[LSM6DS3_STEP_COUNTER]);
 	}
 
 	if (src_value & LSM6DS3_SRC_TILT_DATA_AVL) {
