@@ -385,7 +385,6 @@ static void lsm6ds3_parse_fifo_data(struct lsm6ds3_data *cdata, u16 read_len)
 	u16 fifo_offset = 0;
 	u8 gyro_sip, accel_sip;
 
-	printk("BARBA parse fifo %d\t%d\n", fifo_offset, read_len);
 	while (fifo_offset < read_len) {
 		gyro_sip = cdata->gyro_samples_in_pattern;
 		accel_sip = cdata->accel_samples_in_pattern;
@@ -464,7 +463,7 @@ static int lsm6ds3_set_fifo_enable(struct lsm6ds3_data *cdata, bool status)
 		reg_value = LSM6DS3_FIFO_ODR_MAX;
 	else
 		reg_value = LSM6DS3_FIFO_ODR_OFF;
-	printk("BARBA: %d\n",  __LINE__);
+
 	return lsm6ds3_write_data_with_mask(cdata,
 					LSM6DS3_FIFO_ODR_ADDR,
 					LSM6DS3_FIFO_ODR_MASK,
@@ -476,7 +475,7 @@ int lsm6ds3_set_fifo_mode(struct lsm6ds3_data *cdata, enum fifo_mode fm)
 	int err;
 	u8 reg_value;
 	bool enable_fifo;
-	printk("BARBA: %d\n",  __LINE__);
+
 	switch (fm) {
 	case BYPASS:
 		reg_value = LSM6DS3_FIFO_MODE_BYPASS;
@@ -489,11 +488,11 @@ int lsm6ds3_set_fifo_mode(struct lsm6ds3_data *cdata, enum fifo_mode fm)
 	default:
 		return -EINVAL;
 	}
-	printk("BARBA: %d\n",  __LINE__);
+
 	err = lsm6ds3_set_fifo_enable(cdata, enable_fifo);
 	if (err < 0)
 		return err;
-	printk("BARBA: %d\n",  __LINE__);
+
 	return lsm6ds3_write_data_with_mask(cdata, LSM6DS3_FIFO_MODE_ADDR,
 				LSM6DS3_FIFO_MODE_MASK, reg_value, true);
 }
@@ -509,7 +508,6 @@ int lsm6ds3_set_fifo_decimators_and_threshold(struct lsm6ds3_data *cdata)
 
 	sdata_accel = &cdata->sensors[LSM6DS3_ACCEL];
 	if (sdata_accel->enabled) {
-		printk("BARBA: %d\n",  __LINE__);
 		if (min_odr > sdata_accel->c_odr)
 			min_odr = sdata_accel->c_odr;
 
@@ -517,7 +515,6 @@ int lsm6ds3_set_fifo_decimators_and_threshold(struct lsm6ds3_data *cdata)
 			max_odr = sdata_accel->c_odr;
 
 		fifo_len_accel = (sdata_accel->fifo_length);
-		printk("BARBA: %d fifo_len_accel = %d\n",  __LINE__, fifo_len_accel);
 	}
 
 	sdata_gyro = &cdata->sensors[LSM6DS3_GYRO];
@@ -553,7 +550,7 @@ int lsm6ds3_set_fifo_decimators_and_threshold(struct lsm6ds3_data *cdata)
 		gyro_decimator = max_odr / sdata_gyro->c_odr;
 	} else
 		cdata->gyro_samples_in_pattern = 0;
-	printk("BARBA: %d\n",  __LINE__);
+
 	err = lsm6ds3_write_data_with_mask(cdata,
 					LSM6DS3_FIFO_DECIMATOR_ADDR,
 					LSM6DS3_FIFO_GYRO_DECIMATOR_MASK,
@@ -565,14 +562,14 @@ int lsm6ds3_set_fifo_decimators_and_threshold(struct lsm6ds3_data *cdata)
 		min_num_pattern = MAX(num_pattern_gyro, num_pattern_accel);
 	else
 		min_num_pattern = MIN(num_pattern_gyro, num_pattern_accel);
-	printk("BARBA: %d\n",  __LINE__);
+
 	fifo_len = (cdata->accel_samples_in_pattern +
 					cdata->gyro_samples_in_pattern) * min_num_pattern *
 					LSM6DS3_FIFO_ELEMENT_LEN_BYTE;
-	printk("BARBA: %d\n",  __LINE__);
+
 	if (fifo_len > 0) {
 		fifo_threshold = fifo_len;
-		printk("BARBA: %d - fifo_threshold = %d\n",  __LINE__, fifo_threshold);
+
 		err = cdata->tf->write(cdata, LSM6DS3_FIFO_THR_L_ADDR, 1,
 												(u8 *)&fifo_threshold, true);
 		if (err < 0)
@@ -622,19 +619,17 @@ int lsm6ds3_reconfigure_fifo(struct lsm6ds3_data *cdata,
 		goto reconfigure_fifo_irq_restore;
 
 	fifo_len = lsm6ds3_set_fifo_decimators_and_threshold(cdata);
-	printk("BARBA: fifo length = %d\n", fifo_len);
 	if (fifo_len < 0) {
 		err = fifo_len;
 		goto reconfigure_fifo_irq_restore;
 	}
-	printk("BARBA: %d\n",  __LINE__);
+
 	if (fifo_len > 0) {
-		printk("BARBA: %d\n",  __LINE__);
 		err = lsm6ds3_set_fifo_mode(cdata, CONTINUOS);
 		if (err < 0)
 			goto reconfigure_fifo_irq_restore;
 	}
-	printk("BARBA: %d\n",  __LINE__);
+
 reconfigure_fifo_irq_restore:
 	mutex_unlock(&cdata->fifo_lock);
 
@@ -656,16 +651,15 @@ static int lsm6ds3_set_fs(struct lsm6ds3_sensor_data *sdata, u32 gain)
 {
 	int err, i;
 
-	printk("BARBA: %d\n",  __LINE__);
 	for (i = 0; i < LSM6DS3_FS_LIST_NUM; i++) {
 		if (lsm6ds3_fs_table[sdata->sindex].fs_avl[i].gain == gain)
 			break;
 	}
-	printk("BARBA: %d %d %d\n", sdata->sindex, i, gain);
+
 	if (i == LSM6DS3_FS_LIST_NUM)
 		return -EINVAL;
 
-	printk("BARBA: %d\n",  __LINE__);
+
 	err = lsm6ds3_write_data_with_mask(sdata->cdata,
 				lsm6ds3_fs_table[sdata->sindex].addr,
 				lsm6ds3_fs_table[sdata->sindex].mask,
@@ -673,7 +667,6 @@ static int lsm6ds3_set_fs(struct lsm6ds3_sensor_data *sdata, u32 gain)
 	if (err < 0)
 		return err;
 
-	printk("BARBA: %d\n",  __LINE__);
 	sdata->c_gain = gain;
 
 	return 0;
@@ -688,7 +681,6 @@ irqreturn_t lsm6ds3_save_timestamp(int irq, void *private)
 
 	disable_irq_nosync(irq);
 
-	printk("IRQ received\n");
 	return IRQ_HANDLED;
 }
 
@@ -700,7 +692,6 @@ static void lsm6ds3_irq_management(struct work_struct *input_work)
 	cdata = container_of((struct work_struct *)input_work,
 						struct lsm6ds3_data, input_work);
 
-	printk("IRQ management\n");
 	cdata->tf->read(cdata, LSM6DS3_SRC_FUNC_ADDR, 1, &src_value, true);
 	cdata->tf->read(cdata, LSM6DS3_FIFO_DATA_AVL_ADDR, 1, &src_fifo, true);
 
@@ -758,7 +749,6 @@ static int lsm6ds3_set_extra_dependency(struct lsm6ds3_sensor_data *sdata,
 				sdata->cdata->sensors[LSM6DS3_STEP_DETECTOR].enabled |
 				sdata->cdata->sensors[LSM6DS3_TILT].enabled)) {
 		if (enable) {
-			printk("BARBA: %d\n",  __LINE__);
 			err = lsm6ds3_write_data_with_mask(sdata->cdata,
 								LSM6DS3_FUNC_EN_ADDR,
 								LSM6DS3_FUNC_EN_MASK,
@@ -766,7 +756,6 @@ static int lsm6ds3_set_extra_dependency(struct lsm6ds3_sensor_data *sdata,
 			if (err < 0)
 				return err;
 		} else {
-			printk("BARBA: %d\n",  __LINE__);
 			err = lsm6ds3_write_data_with_mask(sdata->cdata,
 								LSM6DS3_FUNC_EN_ADDR,
 								LSM6DS3_FUNC_EN_MASK,
@@ -778,7 +767,6 @@ static int lsm6ds3_set_extra_dependency(struct lsm6ds3_sensor_data *sdata,
 
 	if (!sdata->cdata->sensors[LSM6DS3_ACCEL].enabled) {
 		if (enable) {
-			printk("BARBA: %d\n",  __LINE__);
 			err = lsm6ds3_write_data_with_mask(sdata->cdata,
 							lsm6ds3_odr_table.addr[LSM6DS3_ACCEL],
 							lsm6ds3_odr_table.mask[LSM6DS3_ACCEL],
@@ -786,7 +774,6 @@ static int lsm6ds3_set_extra_dependency(struct lsm6ds3_sensor_data *sdata,
 			if (err < 0)
 				return err;
 		} else {
-			printk("BARBA: %d\n",  __LINE__);
 			err = lsm6ds3_write_data_with_mask(sdata->cdata,
 							lsm6ds3_odr_table.addr[LSM6DS3_ACCEL],
 							lsm6ds3_odr_table.mask[LSM6DS3_ACCEL],
@@ -796,7 +783,6 @@ static int lsm6ds3_set_extra_dependency(struct lsm6ds3_sensor_data *sdata,
 		}
 	}
 
-	printk("BARBA: %d\n",  __LINE__);
 	return 0;
 }
 
@@ -885,14 +871,12 @@ static int lsm6ds3_enable_sensors(struct lsm6ds3_sensor_data *sdata)
 		return -EINVAL;
 	}
 
-	printk("BARBA: %d\n",  __LINE__);
 	err = lsm6ds3_set_extra_dependency(sdata, true);
 	if (err < 0)
 		return err;
 
 	sdata->enabled = 1;
 
-	printk("BARBA: %d\n",  __LINE__);
 	return 0;
 }
 
@@ -900,15 +884,13 @@ static int lsm6ds3_disable_sensors(struct lsm6ds3_sensor_data *sdata)
 {
 	int err;
 
-	printk("BARBA: %d\n",  __LINE__);
 	switch (sdata->sindex) {
 	case LSM6DS3_ACCEL:
-		printk("BARBA: %d\n",  __LINE__);
 		if (sdata->cdata->sensors[LSM6DS3_SIGN_MOTION].enabled |
 						sdata->cdata->sensors[LSM6DS3_STEP_COUNTER].enabled |
 						sdata->cdata->sensors[LSM6DS3_STEP_DETECTOR].enabled |
 						sdata->cdata->sensors[LSM6DS3_TILT].enabled) {
-			printk("BARBA: %d\n",  __LINE__);
+
 			err = lsm6ds3_write_data_with_mask(sdata->cdata,
 									lsm6ds3_odr_table.addr[LSM6DS3_ACCEL],
 									lsm6ds3_odr_table.mask[LSM6DS3_ACCEL],
@@ -918,15 +900,12 @@ static int lsm6ds3_disable_sensors(struct lsm6ds3_sensor_data *sdata)
 									lsm6ds3_odr_table.addr[LSM6DS3_ACCEL],
 									lsm6ds3_odr_table.mask[LSM6DS3_ACCEL],
 									LSM6DS3_ODR_POWER_OFF_VAL, true);
-			printk("BARBA: %d ret = %d\n",  __LINE__, err);
 		}
 		if (err < 0)
 			return err;
 
-		printk("BARBA: %d\n",  __LINE__);
 		break;
 	case LSM6DS3_GYRO:
-		printk("BARBA: %d\n",  __LINE__);
 		err = lsm6ds3_write_data_with_mask(sdata->cdata,
 									lsm6ds3_odr_table.addr[LSM6DS3_GYRO],
 									lsm6ds3_odr_table.mask[LSM6DS3_GYRO],
@@ -934,10 +913,8 @@ static int lsm6ds3_disable_sensors(struct lsm6ds3_sensor_data *sdata)
 		if (err < 0)
 			return err;
 
-		printk("BARBA: %d\n",  __LINE__);
 		break;
 	case LSM6DS3_SIGN_MOTION:
-		printk("BARBA: %d\n",  __LINE__);
 		err = lsm6ds3_write_data_with_mask(sdata->cdata,
 									LSM6DS3_SIGN_MOTION_EN_ADDR,
 									LSM6DS3_SIGN_MOTION_EN_MASK,
@@ -945,28 +922,21 @@ static int lsm6ds3_disable_sensors(struct lsm6ds3_sensor_data *sdata)
 		if (err < 0)
 			return err;
 
-		printk("BARBA: %d\n",  __LINE__);
 		break;
 	case LSM6DS3_STEP_COUNTER:
-		printk("BARBA: %d\n",  __LINE__);
 		err = lsm6ds3_write_data_with_mask(sdata->cdata,
 							LSM6DS3_TIMER_EN_ADDR,
 							LSM6DS3_TIMER_EN_MASK,
 							LSM6DS3_DIS_BIT, true);
 		if (err < 0)
 			return err;
-
-		printk("BARBA: %d\n",  __LINE__);
 	case LSM6DS3_STEP_DETECTOR:
-		printk("BARBA: %d\n",  __LINE__);
 		err = lsm6ds3_enable_pedometer(sdata, false);
 		if (err < 0)
 			return err;
 
-		printk("BARBA: %d\n",  __LINE__);
 		break;
 	case LSM6DS3_TILT:
-		printk("BARBA: %d\n",  __LINE__);
 		err = lsm6ds3_write_data_with_mask(sdata->cdata,
 							LSM6DS3_TILT_EN_ADDR,
 							LSM6DS3_TILT_EN_MASK,
@@ -974,21 +944,17 @@ static int lsm6ds3_disable_sensors(struct lsm6ds3_sensor_data *sdata)
 		if (err < 0)
 			return err;
 
-		printk("BARBA: %d\n",  __LINE__);
 		break;
 	default:
-		printk("%s:%d %d\n", __func__, __LINE__, sdata->sindex);
 		return -EINVAL;
 	}
 
-	printk("BARBA: %d\n",  __LINE__);
 	err = lsm6ds3_set_extra_dependency(sdata, false);
 	if (err < 0)
 		return err;
 
 	sdata->enabled = false;
 
-	printk("BARBA: %d\n",  __LINE__);
 	return 0;
 }
 
@@ -1032,20 +998,15 @@ static int lsm6ds3_init_sensors(struct lsm6ds3_data *cdata)
 	u8 default_reg_value = 0;
 	struct lsm6ds3_sensor_data *sdata;
 
-	printk("BARBA: %d\n", __LINE__);
 	mutex_init(&cdata->tb.buf_lock);
 
 	for (i = 0; i < LSM6DS3_SENSORS_NUMB; i++) {
 		sdata = &cdata->sensors[i];
 
-		printk("BARBA: %d\n", __LINE__);
 		err = lsm6ds3_disable_sensors(sdata);
-		if (err < 0) {
-			printk("BARBA: error %d %d\n", __LINE__, err);
+		if (err < 0)
 			return err;
-		}
 
-		printk("BARBA: DEBUG odr %d gain %d --- %d %d\n", cdata->sensors[LSM6DS3_GYRO].c_odr, cdata->sensors[LSM6DS3_GYRO].c_gain, sdata->c_gain, i);
 		if ((sdata->sindex == LSM6DS3_ACCEL) ||
 				(sdata->sindex == LSM6DS3_GYRO)) {
 			err = lsm6ds3_set_fs(sdata, sdata->c_gain);
@@ -1054,11 +1015,8 @@ static int lsm6ds3_init_sensors(struct lsm6ds3_data *cdata)
 		}
 	}
 	err = lsm6ds3_reconfigure_fifo(cdata, true);
-	if (err < 0) {
-		printk("Error while reconfigure fifo\n");
+	if (err < 0)
 		return err;
-	}
-
 
 	cdata->gyro_selftest_status = 0;
 	cdata->accel_selftest_status = 0;
@@ -1068,7 +1026,6 @@ static int lsm6ds3_init_sensors(struct lsm6ds3_data *cdata)
 	if (err < 0)
 		return err;
 
-	printk("BARBA: %d\n", __LINE__);
 	err = lsm6ds3_write_data_with_mask(cdata, LSM6DS3_BDU_ADDR,
 				LSM6DS3_BDU_MASK, LSM6DS3_EN_BIT, true);
 	if (err < 0)
@@ -1082,7 +1039,6 @@ static int lsm6ds3_init_sensors(struct lsm6ds3_data *cdata)
 	if (err < 0)
 		return err;
 
-	printk("BARBA: %d\n", __LINE__);
 	err = lsm6ds3_write_data_with_mask(cdata,
 					LSM6DS3_ROUNDING_ADDR,
 					LSM6DS3_ROUNDING_MASK,
@@ -1090,7 +1046,6 @@ static int lsm6ds3_init_sensors(struct lsm6ds3_data *cdata)
 	if (err < 0)
 		return err;
 
-	printk("BARBA: %d\n", __LINE__);
 	err = lsm6ds3_write_data_with_mask(cdata,
 					LSM6DS3_INT2_ON_INT1_ADDR,
 					LSM6DS3_INT2_ON_INT1_MASK,
@@ -1098,14 +1053,12 @@ static int lsm6ds3_init_sensors(struct lsm6ds3_data *cdata)
 	if (err < 0)
 		return err;
 
-	printk("BARBA: %d", __LINE__);
 	err = lsm6ds3_reset_steps(sdata->cdata);
 	if (err < 0)
 		return err;
 
 	mutex_lock(&cdata->bank_registers_lock);
 
-	printk("BARBA: %d", __LINE__);
 	err = lsm6ds3_write_data_with_mask(sdata->cdata,
 					LSM6DS3_FUNC_CFG_ACCESS_ADDR,
 					LSM6DS3_FUNC_CFG_REG2_MASK,
@@ -1113,14 +1066,12 @@ static int lsm6ds3_init_sensors(struct lsm6ds3_data *cdata)
 	if (err < 0)
 		goto lsm6ds3_init_sensor_mutex_unlock;
 
-	printk("BARBA: %d", __LINE__);
 	err = sdata->cdata->tf->write(sdata->cdata,
 					LSM6DS3_STEP_COUNTER_DURATION_ADDR,
 					1, &default_reg_value, false);
 	if (err < 0)
 		goto lsm6ds3_init_sensor_mutex_unlock;
 
-	printk("BARBA: %d", __LINE__);
 	err = lsm6ds3_write_data_with_mask(sdata->cdata,
 					LSM6DS3_FUNC_CFG_ACCESS_ADDR,
 					LSM6DS3_FUNC_CFG_REG2_MASK,
@@ -1128,7 +1079,6 @@ static int lsm6ds3_init_sensors(struct lsm6ds3_data *cdata)
 	if (err < 0)
 		goto lsm6ds3_init_sensor_mutex_unlock;
 
-	printk("BARBA: %d", __LINE__);
 	mutex_unlock(&cdata->bank_registers_lock);
 
 	sdata->c_odr = 0;
@@ -1174,7 +1124,6 @@ static int lsm6ds3_set_odr(struct lsm6ds3_sensor_data *sdata, u32 odr)
 	} else
 		sdata->c_odr = lsm6ds3_odr_table.odr_avl[i].hz;
 
-	printk("BARBA: %d\n", __LINE__);
 	return err;
 }
 
@@ -1369,7 +1318,6 @@ int lsm6ds3_common_probe(struct lsm6ds3_data *cdata, int irq, u16 bustype)
 	mutex_init(&cdata->fifo_lock);
 	cdata->fifo_data_buffer = 0;
 
-	printk("BARBA: %d\n", __LINE__);
 	err = cdata->tf->read(cdata, LSM6DS3_WAI_ADDRESS, 1, &wai, true);
 	if (err < 0) {
 		dev_err(cdata->dev, "failed to read Who-Am-I register.\n");
@@ -1388,7 +1336,6 @@ int lsm6ds3_common_probe(struct lsm6ds3_data *cdata, int irq, u16 bustype)
 
 	mutex_init(&cdata->lock);
 
-	printk("BARBA: %d\n", __LINE__);
 	if (irq > 0) {
 #ifdef CONFIG_OF
 		err = lsm6ds3_parse_dt(cdata);
@@ -1409,7 +1356,6 @@ int lsm6ds3_common_probe(struct lsm6ds3_data *cdata, int irq, u16 bustype)
 														cdata->drdy_int_pin);
 	}
 
-	printk("BARBA: %d\n", __LINE__);
 	for (i = 0; i < LSM6DS3_SENSORS_NUMB; i++) {
 		sdata = &cdata->sensors[i];
 		sdata->enabled = false;
@@ -1420,10 +1366,8 @@ int lsm6ds3_common_probe(struct lsm6ds3_data *cdata, int irq, u16 bustype)
 		if ((i == LSM6DS3_ACCEL) || (i == LSM6DS3_GYRO)) {
 			sdata->c_odr = lsm6ds3_odr_table.odr_avl[0].hz;
 			sdata->c_gain = lsm6ds3_fs_table[i].fs_avl[0].gain;
-			printk("BARBA: %d odr = %d gain = %d\n", __LINE__, sdata->c_odr, sdata->c_gain);
 		}
 
-		printk("BARBA: %d\n", __LINE__);
 		lsm6ds3_input_init(sdata, bustype, lsm6ds3_sensor_name[i].description);
 		if (sysfs_create_group(&sdata->input_dev->dev.kobj, &lsm6ds3_attribute_groups[i])) {
 			dev_err(cdata->dev, "failed to create sysfs group for sensor %s", sdata->name);
@@ -1436,7 +1380,6 @@ int lsm6ds3_common_probe(struct lsm6ds3_data *cdata, int irq, u16 bustype)
 		lsm6ds3_workqueue =
 			create_workqueue("lsm6ds3_workqueue");
 
-	printk("BARBA: %d\n", __LINE__);
 	err = lsm6ds3_init_sensors(cdata);
 	if (err < 0)
 		return err;
@@ -1447,7 +1390,6 @@ int lsm6ds3_common_probe(struct lsm6ds3_data *cdata, int irq, u16 bustype)
 
 	if (irq > 0) {
 		err = lsm6ds3_allocate_triggers(cdata);
-		printk("BARBA: check %d\n", err);
 		if (err < 0)
 			return err;
 	}
