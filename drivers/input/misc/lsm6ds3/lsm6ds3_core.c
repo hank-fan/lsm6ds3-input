@@ -334,8 +334,11 @@ static int lsm6ds3_input_init(struct lsm6ds3_sensor_data *sdata, u16 bustype,
 	__set_bit(INPUT_EVENT_TIME_MSB, sdata->input_dev->mscbit);
 	__set_bit(INPUT_EVENT_TIME_LSB, sdata->input_dev->mscbit);
 	__set_bit(INPUT_EVENT_X, sdata->input_dev->mscbit);
-	__set_bit(INPUT_EVENT_Y, sdata->input_dev->mscbit);
-	__set_bit(INPUT_EVENT_Z, sdata->input_dev->mscbit);
+
+	if ((sdata->sindex == LSM6DS3_ACCEL) || (sdata->sindex == LSM6DS3_GYRO)) {
+		__set_bit(INPUT_EVENT_Y, sdata->input_dev->mscbit);
+		__set_bit(INPUT_EVENT_Z, sdata->input_dev->mscbit);
+	}
 
 	err = input_register_device(sdata->input_dev);
 	if (err) {
