@@ -198,7 +198,7 @@ static const struct lsm6ds3_sensor_name {
 	},
 	[LSM6DS3_GYRO] = {
 			.name = "gyro",
-			.description = "ST LSM6DS3 Accelerometer Sensor",
+			.description = "ST LSM6DS3 Gyroscope Sensor",
 	},
 	[LSM6DS3_SIGN_MOTION] = {
 			.name = "sign_m",
