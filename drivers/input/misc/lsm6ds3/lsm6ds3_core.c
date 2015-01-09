@@ -777,7 +777,6 @@ static void lsm6ds3_irq_management(struct work_struct *input_work)
 	cdata->tf->read(cdata, LSM6DS3_SRC_FUNC_ADDR, 1, &src_value, true);
 	cdata->tf->read(cdata, LSM6DS3_FIFO_DATA_AVL_ADDR, 1, &src_fifo, true);
 
-	printk("IRQ received 0x%x\n", src_fifo);
 	if (src_fifo & LSM6DS3_FIFO_DATA_AVL)
 		lsm6ds3_read_fifo(cdata, false);
 
@@ -1490,10 +1489,8 @@ int lsm6ds3_common_probe(struct lsm6ds3_data *cdata, int irq, u16 bustype)
 	err = lsm6ds3_init_sensors(cdata);
 	if (err < 0)
 		return err;
-	if (irq > 0) {
+	if (irq > 0)
 		cdata->irq = irq;
-		dev_info(cdata->dev, "driver use DRDY int pin 1\n");
-	}
 
 	if (irq > 0) {
 		err = lsm6ds3_allocate_workqueue(cdata);
