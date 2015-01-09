@@ -414,8 +414,8 @@ static void lsm6ds3_parse_fifo_data(struct lsm6ds3_data *cdata, u16 read_len)
 	u8 gyro_sip, accel_sip;
 
 	while (fifo_offset < read_len) {
-		gyro_sip = cdata->gyro_samples_in_pattern;
-		accel_sip = cdata->accel_samples_in_pattern;
+		gyro_sip = cdata->sensors[LSM6DS3_GYRO].sample_in_pattern;
+		accel_sip = cdata->sensors[LSM6DS3_ACCEL].sample_in_pattern;
 
 		do {
 			if (gyro_sip > 0) {
@@ -574,12 +574,12 @@ int lsm6ds3_set_fifo_decimators_and_threshold(struct lsm6ds3_data *cdata)
 	}
 
 	if (sdata_accel->enabled) {
-		cdata->accel_samples_in_pattern = (sdata_accel->c_odr / min_odr);
-		num_pattern_accel = fifo_len_accel / cdata->accel_samples_in_pattern;
+		sdata_accel->sample_in_pattern = (sdata_accel->c_odr / min_odr);
+		num_pattern_accel = fifo_len_accel / sdata_accel->sample_in_pattern;
 		cdata->accel_deltatime = (1000000000ULL / sdata_accel->c_odr);
 		accel_decimator = max_odr / sdata_accel->c_odr;
 	} else
-		cdata->accel_samples_in_pattern = 0;
+		sdata_accel->sample_in_pattern = 0;
 
 	err = lsm6ds3_write_data_with_mask(cdata,
 					LSM6DS3_FIFO_DECIMATOR_ADDR,
@@ -589,12 +589,12 @@ int lsm6ds3_set_fifo_decimators_and_threshold(struct lsm6ds3_data *cdata)
 		return err;
 
 	if (sdata_gyro->enabled) {
-		cdata->gyro_samples_in_pattern = (sdata_gyro->c_odr / min_odr);
-		num_pattern_gyro = fifo_len_gyro / cdata->gyro_samples_in_pattern;
+		sdata_gyro->sample_in_pattern = (sdata_gyro->c_odr / min_odr);
+		num_pattern_gyro = fifo_len_gyro / sdata_gyro->sample_in_pattern;
 		cdata->gyro_deltatime = (1000000000ULL / sdata_gyro->c_odr);
 		gyro_decimator = max_odr / sdata_gyro->c_odr;
 	} else
-		cdata->gyro_samples_in_pattern = 0;
+		sdata_gyro->sample_in_pattern = 0;
 
 	err = lsm6ds3_write_data_with_mask(cdata,
 					LSM6DS3_FIFO_DECIMATOR_ADDR,
@@ -608,9 +608,8 @@ int lsm6ds3_set_fifo_decimators_and_threshold(struct lsm6ds3_data *cdata)
 	else
 		min_num_pattern = MIN(num_pattern_gyro, num_pattern_accel);
 
-	fifo_len = (cdata->accel_samples_in_pattern +
-					cdata->gyro_samples_in_pattern) * min_num_pattern *
-					LSM6DS3_FIFO_ELEMENT_LEN_BYTE;
+	fifo_len = (sdata_accel->sample_in_pattern + sdata_gyro->sample_in_pattern)
+							* min_num_pattern * LSM6DS3_FIFO_ELEMENT_LEN_BYTE;
 
 	if (fifo_len > 0) {
 		fifo_threshold = fifo_len;

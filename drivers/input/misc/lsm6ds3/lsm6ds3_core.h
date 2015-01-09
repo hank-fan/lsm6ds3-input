@@ -139,6 +139,7 @@ struct lsm6ds3_sensor_data {
 	ktime_t ktime;
 	u8 *buffer_data;
 	u16 fifo_length;
+	u8 sample_in_pattern;
 
 	struct hrtimer hr_timer;
 	struct input_dev *input_dev;
@@ -154,8 +155,6 @@ struct lsm6ds3_data {
 	u8 drdy_int_pin;
 	u8 gyro_selftest_status;
 	u8 accel_selftest_status;
-	u8 accel_samples_in_pattern;
-	u8 gyro_samples_in_pattern;
 
 	struct mutex lock;
 	int irq;
