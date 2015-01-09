@@ -483,7 +483,7 @@ void lsm6ds3_read_fifo(struct lsm6ds3_data *cdata, bool check_fifo_len)
 	lsm6ds3_parse_fifo_data(cdata, read_len);
 }
 
-s32 lsm6ds3_manage_step_counter_event(struct lsm6ds3_sensor_data *sdata)
+s32 lsm6ds3_read_step_counter_event(struct lsm6ds3_sensor_data *sdata)
 {
 	int err;
 	u32 steps = 0;
@@ -770,6 +770,7 @@ static void lsm6ds3_irq_management(struct work_struct *input_work)
 {
 	struct lsm6ds3_data *cdata;
 	u8 src_value = 0x00, src_fifo = 0x00;
+	struct lsm6ds3_sensor_data *sdata;
 
 	cdata = container_of((struct work_struct *)input_work,
 						struct lsm6ds3_data, input_work);
@@ -787,18 +788,21 @@ static void lsm6ds3_irq_management(struct work_struct *input_work)
 	}
 
 	if (src_value & LSM6DS3_SRC_STEP_DETECTOR_DATA_AVL) {
-		cdata->sensors[LSM6DS3_STEP_DETECTOR].timestamp = cdata->timestamp;
-		printk("Step Detector data available. Implement pushing event function!!!!\n\n");
+		sdata = &cdata->sensors[LSM6DS3_STEP_DETECTOR];
+		sdata->timestamp = cdata->timestamp;
+		lsm6ds3_report_single_event(sdata, 1, sdata->timestamp);
 	}
 
 	if (src_value & LSM6DS3_SRC_STEP_COUNTER_DATA_AVL) {
-		cdata->sensors[LSM6DS3_STEP_COUNTER].timestamp = cdata->timestamp;
-		lsm6ds3_manage_step_counter_event(&cdata->sensors[LSM6DS3_STEP_COUNTER]);
+		sdata = &cdata->sensors[LSM6DS3_STEP_COUNTER];
+		sdata->timestamp = cdata->timestamp;
+		lsm6ds3_read_step_counter_event(sdata);
 	}
 
 	if (src_value & LSM6DS3_SRC_TILT_DATA_AVL) {
-		cdata->sensors[LSM6DS3_TILT].timestamp = cdata->timestamp;
-		printk("Tilt data available. Implement pushing event function!!!!\n\n");
+		sdata = &cdata->sensors[LSM6DS3_TILT];
+		sdata->timestamp = cdata->timestamp;
+		lsm6ds3_report_single_event(sdata, 1, sdata->timestamp);
 	}
 
 	enable_irq(cdata->irq);
