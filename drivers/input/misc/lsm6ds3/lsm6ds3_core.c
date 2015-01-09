@@ -1341,7 +1341,6 @@ static struct attribute *lsm6ds3_gyro_attribute[] = {
 
 static struct attribute *lsm6ds3_sign_m_attribute[] = {
 	&dev_attr_enable.attr,
-	&dev_attr_fifo_length.attr,
 	NULL,
 };
 
@@ -1354,13 +1353,11 @@ static struct attribute *lsm6ds3_step_c_attribute[] = {
 
 static struct attribute *lsm6ds3_step_d_attribute[] = {
 	&dev_attr_enable.attr,
-	&dev_attr_fifo_length.attr,
 	NULL,
 };
 
 static struct attribute *lsm6ds3_tilt_attribute[] = {
 	&dev_attr_enable.attr,
-	&dev_attr_fifo_length.attr,
 	NULL,
 };
 
