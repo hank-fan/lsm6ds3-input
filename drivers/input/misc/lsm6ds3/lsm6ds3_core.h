@@ -45,7 +45,6 @@ enum fifo_mode {
 #define LSM6DS3_GYR_ODR_ADDR		CTRL2_ADDR
 #define LSM6DS3_GYR_ODR_MASK		(0xf0)
 
-
 #define LSM6DS3_ACC_FS_ADDR			CTRL1_ADDR
 #define LSM6DS3_GYR_FS_ADDR			CTRL2_ADDR
 
@@ -136,10 +135,10 @@ struct lsm6ds3_sensor_data {
 	u32 c_odr;
 	u32 c_gain;
 	u8 sindex;
-	ktime_t ktime;
-	u8 *buffer_data;
+
 	u16 fifo_length;
 	u8 sample_in_pattern;
+	int64_t deltatime;
 
 	struct hrtimer hr_timer;
 	struct input_dev *input_dev;
@@ -160,8 +159,6 @@ struct lsm6ds3_data {
 	int irq;
 
 	int64_t timestamp;
-	int64_t accel_deltatime;
-	int64_t gyro_deltatime;
 	struct work_struct input_work;
 	struct device *dev;
 	struct lsm6ds3_sensor_data sensors[LSM6DS3_SENSORS_NUMB];

@@ -28,11 +28,11 @@
 #include	"lsm6ds3_core.h"
 
 /* COMMON VALUES FOR ACCEL-GYRO SENSORS */
-#define LSM6DS3_WAI_ADDRESS			0x0f
-#define LSM6DS3_WAI_EXP			0x69
+#define LSM6DS3_WHO_AM_I			0x0f
+#define LSM6DS3_WHO_AM_I_DEF		0x69
 #define LSM6DS3_AXIS_EN_MASK			0x38
-#define LSM6DS3_INT1_ADDR			0x0d
-#define LSM6DS3_INT2_ADDR			0x0e
+#define LSM6DS3_INT1_CTRL_ADDR			0x0d
+#define LSM6DS3_INT2_CTRL_ADDR			0x0e
 #define LSM6DS3_INT1_FULL			0x20
 #define LSM6DS3_INT1_FTH			0x08
 #define LSM6DS3_MD1_ADDR			0x5e
@@ -83,15 +83,21 @@
 #define LSM6DS3_FIFO_THRESHOLD_IRQ_MASK	0x08
 #define LSM6DS3_FIFO_ODR_ADDR		0x0a
 #define LSM6DS3_FIFO_ODR_MASK		0x78
-#define LSM6DS3_FIFO_ODR_MAX			0x08
+#define LSM6DS3_FIFO_ODR_MAX			0x07
+#define LSM6DS3_FIFO_ODR_MAX_HZ			800
 #define LSM6DS3_FIFO_ODR_OFF			0x00
-#define LSM6DS3_FIFO_DECIMATOR_ADDR		0x08
+#define LSM6DS3_FIFO_CTRL3_ADDR		0x08
 #define LSM6DS3_FIFO_ACCEL_DECIMATOR_MASK	0x07
 #define LSM6DS3_FIFO_GYRO_DECIMATOR_MASK	0x38
+#define LSM6DS3_FIFO_CTRL4_ADDR		0x09
+#define LSM6DS3_FIFO_STEP_C_DECIMATOR_MASK	0x38
 #define LSM6DS3_FIFO_THR_L_ADDR		0x06
 #define LSM6DS3_FIFO_THR_H_ADDR		0x07
 #define LSM6DS3_FIFO_THR_H_MASK		0x0f
 #define LSM6DS3_FIFO_THR_IRQ_MASK		0x08
+#define LSM6DS3_FIFO_PEDO_E_ADDR	0x07
+#define LSM6DS3_FIFO_PEDO_E_MASK	0x80
+#define LSM6DS3_FIFO_STEP_C_FREQ	25
 
 /* CUSTOM VALUES FOR ACCEL SENSOR */
 #define LSM6DS3_ACCEL_ODR_ADDR		0x10
@@ -403,19 +409,20 @@ static void lsm6ds3_push_data_with_timestamp(struct lsm6ds3_sensor_data *sdata,
 	data[1] *= sdata->c_gain;
 	data[2] *= sdata->c_gain;
 
-	dev_info(sdata->cdata->dev, "push data %s\t%d\t[%d,\t%d,\t%d]\t\t timestamp = %ul",
-						sdata->name, offset / 6, data[0], data[1], data[2], timestamp);
+	//dev_info(sdata->cdata->dev, "push data %s\t%d\t[%d,\t%d,\t%d]\t\t timestamp = %ul",
+	//					sdata->name, offset / 6, data[0], data[1], data[2], timestamp);
 	lsm6ds3_report_3axes_event(sdata, data, timestamp);
 }
 
 static void lsm6ds3_parse_fifo_data(struct lsm6ds3_data *cdata, u16 read_len)
 {
-	u16 fifo_offset = 0;
-	u8 gyro_sip, accel_sip;
+	u16 fifo_offset = 0, steps_c = 0;
+	u8 gyro_sip, accel_sip, step_c_sip;
 
 	while (fifo_offset < read_len) {
 		gyro_sip = cdata->sensors[LSM6DS3_GYRO].sample_in_pattern;
 		accel_sip = cdata->sensors[LSM6DS3_ACCEL].sample_in_pattern;
+		step_c_sip = cdata->sensors[LSM6DS3_STEP_COUNTER].sample_in_pattern;
 
 		do {
 			if (gyro_sip > 0) {
@@ -423,7 +430,8 @@ static void lsm6ds3_parse_fifo_data(struct lsm6ds3_data *cdata, u16 read_len)
 					cdata->sensors[LSM6DS3_GYRO].timestamp = cdata->timestamp;
 					cdata->fifo_reconfigured = false;
 				} else
-					cdata->sensors[LSM6DS3_GYRO].timestamp += cdata->gyro_deltatime;
+					cdata->sensors[LSM6DS3_GYRO].timestamp +=
+										cdata->sensors[LSM6DS3_GYRO].deltatime;
 
 				lsm6ds3_push_data_with_timestamp(&cdata->sensors[LSM6DS3_GYRO],
 							fifo_offset, cdata->sensors[LSM6DS3_GYRO].timestamp);
@@ -434,10 +442,11 @@ static void lsm6ds3_parse_fifo_data(struct lsm6ds3_data *cdata, u16 read_len)
 
 			if (accel_sip > 0) {
 				if (cdata->fifo_reconfigured) {
-					cdata->sensors[LSM6DS3_ACCEL].timestamp  = cdata->timestamp;
+					cdata->sensors[LSM6DS3_ACCEL].timestamp = cdata->timestamp;
 					cdata->fifo_reconfigured = false;
 				} else
-					cdata->sensors[LSM6DS3_ACCEL].timestamp += cdata->accel_deltatime;
+					cdata->sensors[LSM6DS3_ACCEL].timestamp +=
+									cdata->sensors[LSM6DS3_ACCEL].deltatime;
 
 				lsm6ds3_push_data_with_timestamp(&cdata->sensors[LSM6DS3_ACCEL],
 						fifo_offset, cdata->sensors[LSM6DS3_ACCEL].timestamp);
@@ -445,7 +454,32 @@ static void lsm6ds3_parse_fifo_data(struct lsm6ds3_data *cdata, u16 read_len)
 				fifo_offset += LSM6DS3_FIFO_ELEMENT_LEN_BYTE;
 				accel_sip--;
 			}
-		} while ((accel_sip > 0) || (gyro_sip > 0));
+
+			if (step_c_sip > 0) {
+				if (cdata->fifo_reconfigured) {
+					cdata->sensors[LSM6DS3_STEP_COUNTER].timestamp = cdata->timestamp;
+					cdata->fifo_reconfigured = false;
+				} else
+					cdata->sensors[LSM6DS3_STEP_COUNTER].timestamp +=
+									cdata->sensors[LSM6DS3_STEP_COUNTER].deltatime;
+
+				steps_c = cdata->fifo_data_buffer[fifo_offset + 4] |
+								(cdata->fifo_data_buffer[fifo_offset + 5] << 8);
+			/*	printk("steps = %d 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x\n", steps_c,
+						cdata->fifo_data_buffer[fifo_offset],
+						cdata->fifo_data_buffer[fifo_offset + 1],
+						cdata->fifo_data_buffer[fifo_offset + 2],
+						cdata->fifo_data_buffer[fifo_offset + 3],
+						cdata->fifo_data_buffer[fifo_offset + 4],
+						cdata->fifo_data_buffer[fifo_offset + 5]);*/
+				lsm6ds3_report_single_event(&cdata->sensors[LSM6DS3_STEP_COUNTER],
+								steps_c,
+								cdata->sensors[LSM6DS3_STEP_COUNTER].timestamp);
+
+				fifo_offset += LSM6DS3_FIFO_ELEMENT_LEN_BYTE;
+				step_c_sip--;
+			}
+		} while ((accel_sip > 0) || (gyro_sip > 0) || (step_c_sip > 0));
 	}
 
 	return;
@@ -466,6 +500,7 @@ void lsm6ds3_read_fifo(struct lsm6ds3_data *cdata, bool check_fifo_len)
 			return;
 
 		read_len &= LSM6DS3_FIFO_DIFF_MASK;
+		read_len *= 2;
 
 		if (read_len > cdata->fifo_threshold)
 			read_len = cdata->fifo_threshold;
@@ -545,12 +580,13 @@ int lsm6ds3_set_fifo_mode(struct lsm6ds3_data *cdata, enum fifo_mode fm)
 int lsm6ds3_set_fifo_decimators_and_threshold(struct lsm6ds3_data *cdata)
 {
 	int err;
-	unsigned int min_odr = 416, max_odr = 0;
-	u8 accel_decimator = 0, gyro_decimator = 0;
-	struct lsm6ds3_sensor_data *sdata_accel, *sdata_gyro;
-	u16 fifo_len, fifo_threshold, fifo_len_accel = 0, fifo_len_gyro = 0;
-	u16 num_pattern_accel = 0, num_pattern_gyro = 0, min_num_pattern;
+	unsigned int min_odr = 416, max_odr = 0, step_c_odr;
+	u8 decimator = 0;
+	struct lsm6ds3_sensor_data *sdata_accel, *sdata_gyro, *sdata_step_c;
+	u16 fifo_len, fifo_threshold;
+	u16 min_num_pattern, num_pattern;
 
+	min_num_pattern = FIFO_SIZE_BYTE / LSM6DS3_FIFO_ELEMENT_LEN_BYTE;
 	sdata_accel = &cdata->sensors[LSM6DS3_ACCEL];
 	if (sdata_accel->enabled) {
 		if (min_odr > sdata_accel->c_odr)
@@ -558,8 +594,6 @@ int lsm6ds3_set_fifo_decimators_and_threshold(struct lsm6ds3_data *cdata)
 
 		if (max_odr < sdata_accel->c_odr)
 			max_odr = sdata_accel->c_odr;
-
-		fifo_len_accel = (sdata_accel->fifo_length);
 	}
 
 	sdata_gyro = &cdata->sensors[LSM6DS3_GYRO];
@@ -569,46 +603,72 @@ int lsm6ds3_set_fifo_decimators_and_threshold(struct lsm6ds3_data *cdata)
 
 		if (max_odr < sdata_gyro->c_odr)
 			max_odr = sdata_gyro->c_odr;
+	}
 
-		fifo_len_gyro = (sdata_gyro->fifo_length);
+	sdata_step_c = &cdata->sensors[LSM6DS3_STEP_COUNTER];
+	if (sdata_step_c->enabled) {
+		if (min_odr > sdata_step_c->c_odr)
+			min_odr = sdata_step_c->c_odr;
 	}
 
 	if (sdata_accel->enabled) {
 		sdata_accel->sample_in_pattern = (sdata_accel->c_odr / min_odr);
-		num_pattern_accel = fifo_len_accel / sdata_accel->sample_in_pattern;
-		cdata->accel_deltatime = (1000000000ULL / sdata_accel->c_odr);
-		accel_decimator = max_odr / sdata_accel->c_odr;
-	} else
+		num_pattern = sdata_accel->fifo_length / sdata_accel->sample_in_pattern;
+		min_num_pattern = MIN(min_num_pattern, num_pattern);
+		sdata_accel->deltatime = (1000000000ULL / sdata_accel->c_odr);
+		decimator = max_odr / sdata_accel->c_odr;
+	} else {
 		sdata_accel->sample_in_pattern = 0;
+		decimator = 0;
+	}
 
 	err = lsm6ds3_write_data_with_mask(cdata,
-					LSM6DS3_FIFO_DECIMATOR_ADDR,
+					LSM6DS3_FIFO_CTRL3_ADDR,
 					LSM6DS3_FIFO_ACCEL_DECIMATOR_MASK,
-					accel_decimator, true);
+					decimator, true);
 	if (err < 0)
 		return err;
 
 	if (sdata_gyro->enabled) {
 		sdata_gyro->sample_in_pattern = (sdata_gyro->c_odr / min_odr);
-		num_pattern_gyro = fifo_len_gyro / sdata_gyro->sample_in_pattern;
-		cdata->gyro_deltatime = (1000000000ULL / sdata_gyro->c_odr);
-		gyro_decimator = max_odr / sdata_gyro->c_odr;
-	} else
+		num_pattern = sdata_gyro->fifo_length / sdata_gyro->sample_in_pattern;
+		min_num_pattern = MIN(min_num_pattern, num_pattern);
+		sdata_gyro->deltatime = (1000000000ULL / sdata_gyro->c_odr);
+		decimator = max_odr / sdata_gyro->c_odr;
+	} else {
 		sdata_gyro->sample_in_pattern = 0;
+		decimator = 0;
+	}
 
 	err = lsm6ds3_write_data_with_mask(cdata,
-					LSM6DS3_FIFO_DECIMATOR_ADDR,
+					LSM6DS3_FIFO_CTRL3_ADDR,
 					LSM6DS3_FIFO_GYRO_DECIMATOR_MASK,
-					gyro_decimator, true);
+					decimator, true);
 	if (err < 0)
 		return err;
 
-	if ((num_pattern_gyro == 0) || (num_pattern_accel == 0))
-		min_num_pattern = MAX(num_pattern_gyro, num_pattern_accel);
-	else
-		min_num_pattern = MIN(num_pattern_gyro, num_pattern_accel);
+	if (sdata_step_c->enabled) {
+		sdata_step_c->sample_in_pattern = (sdata_step_c->c_odr / min_odr);
+		num_pattern = sdata_step_c->fifo_length / sdata_step_c->sample_in_pattern;
+		min_num_pattern = MIN(min_num_pattern, num_pattern);
+		sdata_step_c->deltatime = (1000000000ULL / sdata_step_c->c_odr);
+		if (!max_odr)
+			decimator = 1;
+		else
+			decimator = max_odr / sdata_step_c->c_odr;
+	} else {
+		sdata_step_c->sample_in_pattern = 0;
+		decimator = 0;
+	}
 
-	fifo_len = (sdata_accel->sample_in_pattern + sdata_gyro->sample_in_pattern)
+	err = lsm6ds3_write_data_with_mask(cdata,
+					LSM6DS3_FIFO_CTRL4_ADDR,
+					LSM6DS3_FIFO_STEP_C_DECIMATOR_MASK,
+					decimator, true);
+	if (err < 0)
+		return err;
+
+	fifo_len = (sdata_accel->sample_in_pattern + sdata_gyro->sample_in_pattern + sdata_step_c->sample_in_pattern)
 							* min_num_pattern * LSM6DS3_FIFO_ELEMENT_LEN_BYTE;
 
 	if (fifo_len > 0) {
@@ -694,26 +754,23 @@ int lsm6ds3_set_drdy_irq(struct lsm6ds3_sensor_data *sdata, bool state)
 
 	switch (sdata->sindex) {
 	case LSM6DS3_ACCEL:
-		if (sdata->cdata->sensors[LSM6DS3_GYRO].enabled)
-			return 0;
-
-		reg_addr = LSM6DS3_INT1_ADDR;
-		mask = LSM6DS3_FIFO_THR_IRQ_MASK;
-		break;
 	case LSM6DS3_GYRO:
-		if (sdata->cdata->sensors[LSM6DS3_ACCEL].enabled)
+	case LSM6DS3_STEP_COUNTER:
+		if ((sdata->cdata->sensors[LSM6DS3_GYRO].enabled) ||
+				(sdata->cdata->sensors[LSM6DS3_ACCEL].enabled) ||
+				(sdata->cdata->sensors[LSM6DS3_STEP_COUNTER].enabled))
 			return 0;
 
-		reg_addr = LSM6DS3_INT1_ADDR;
+		reg_addr = LSM6DS3_INT1_CTRL_ADDR;
 		mask = LSM6DS3_FIFO_THR_IRQ_MASK;
 		break;
 	case LSM6DS3_SIGN_MOTION:
-		reg_addr = LSM6DS3_INT1_ADDR;
+		reg_addr = LSM6DS3_INT1_CTRL_ADDR;
 		mask = LSM6DS3_SIGN_MOTION_DRDY_IRQ_MASK;
 		break;
-	case LSM6DS3_STEP_COUNTER:
+	//case LSM6DS3_STEP_COUNTER:
 	case LSM6DS3_STEP_DETECTOR:
-		reg_addr = LSM6DS3_INT1_ADDR;
+		reg_addr = LSM6DS3_INT1_CTRL_ADDR;
 		mask = LSM6DS3_STEP_DETECTOR_DRDY_IRQ_MASK;
 		break;
 	case LSM6DS3_TILT:
@@ -877,6 +934,7 @@ static int lsm6ds3_set_extra_dependency(struct lsm6ds3_sensor_data *sdata,
 static int lsm6ds3_enable_pedometer(struct lsm6ds3_sensor_data *sdata,
 								bool enable)
 {
+	int err = 0;
 	u8 value = LSM6DS3_DIS_BIT;
 
 	if (sdata->cdata->sensors[LSM6DS3_STEP_COUNTER].enabled &&
@@ -885,6 +943,13 @@ static int lsm6ds3_enable_pedometer(struct lsm6ds3_sensor_data *sdata,
 
 	if (enable)
 		value = LSM6DS3_EN_BIT;
+
+	err = lsm6ds3_write_data_with_mask(sdata->cdata,
+						LSM6DS3_FIFO_PEDO_E_ADDR,
+						LSM6DS3_FIFO_PEDO_E_MASK,
+						value, true);
+	if (err < 0)
+		return err;
 
 	return lsm6ds3_write_data_with_mask(sdata->cdata,
 						LSM6DS3_PEDOMETER_EN_ADDR,
@@ -1427,12 +1492,12 @@ int lsm6ds3_common_probe(struct lsm6ds3_data *cdata, int irq, u16 bustype)
 	mutex_init(&cdata->fifo_lock);
 	cdata->fifo_data_buffer = 0;
 
-	err = cdata->tf->read(cdata, LSM6DS3_WAI_ADDRESS, 1, &wai, true);
+	err = cdata->tf->read(cdata, LSM6DS3_WHO_AM_I, 1, &wai, true);
 	if (err < 0) {
 		dev_err(cdata->dev, "failed to read Who-Am-I register.\n");
 		return err;
 	}
-	if (wai != LSM6DS3_WAI_EXP) {
+	if (wai != LSM6DS3_WHO_AM_I_DEF) {
 		dev_err(cdata->dev, "Who-Am-I value not valid.\n");
 		return -ENODEV;
 	}
@@ -1470,10 +1535,16 @@ int lsm6ds3_common_probe(struct lsm6ds3_data *cdata, int irq, u16 bustype)
 			sdata->c_odr = lsm6ds3_odr_table.odr_avl[0].hz;
 			sdata->c_gain = lsm6ds3_fs_table[i].fs_avl[0].gain;
 		}
+		if (i == LSM6DS3_STEP_COUNTER) {
+			sdata->c_odr = LSM6DS3_FIFO_STEP_C_FREQ;
+		}
 
 		lsm6ds3_input_init(sdata, bustype, lsm6ds3_sensor_name[i].description);
-		if (sysfs_create_group(&sdata->input_dev->dev.kobj, &lsm6ds3_attribute_groups[i])) {
-			dev_err(cdata->dev, "failed to create sysfs group for sensor %s", sdata->name);
+
+		if (sysfs_create_group(&sdata->input_dev->dev.kobj,
+											&lsm6ds3_attribute_groups[i])) {
+			dev_err(cdata->dev, "failed to create sysfs group for sensor %s",
+											sdata->name);
 			input_unregister_device(sdata->input_dev);
 			sdata->input_dev = NULL;
 		}
