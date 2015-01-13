@@ -84,8 +84,6 @@ enum fifo_mode {
 #define GYR_OUT_MAX	((10000)*(SENSITIVITY_GYR_2000)) /** max value gyr [10udps] */
 #define GYR_OUT_MIN	((-10000)*(SENSITIVITY_GYR_2000)) /** min value gyr [10udps] */
 
-#define LSM6DS3_MAX_FIFO_SIZE		(8 * 1024)
-
 #define INPUT_EVENT_TYPE			EV_MSC
 #define INPUT_EVENT_X				MSC_SERIAL
 #define INPUT_EVENT_Y				MSC_PULSELED

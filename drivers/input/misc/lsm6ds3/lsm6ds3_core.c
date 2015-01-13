@@ -175,6 +175,9 @@
 #define LSM6DS3_FIFO_DATA_AVL		0x80
 #define LSM6DS3_RESET_ADDR			0x12
 #define LSM6DS3_RESET_MASK			0x01
+#define LSM6DS3_MAX_FIFO_SIZE		(8 * 1024)
+#define LSM6DS3_MAX_FIFO_LENGHT		(LSM6DS3_MAX_FIFO_SIZE / \
+												LSM6DS3_FIFO_ELEMENT_LEN_BYTE)
 
 #define MSEC							(1000)
 #define NSEC							(1000000000)
@@ -1374,6 +1377,12 @@ static ssize_t set_fifo_length(struct device *dev,
 	return count;
 }
 
+static ssize_t get_hw_fifo_lenght(struct device *dev,
+									struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", LSM6DS3_MAX_FIFO_LENGHT);
+}
+
 static ssize_t reset_steps(struct device *dev,
 				struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -1396,11 +1405,13 @@ static DEVICE_ATTR(polling_rate, S_IWUSR | S_IRUGO, get_polling_rate,
 static DEVICE_ATTR(fifo_length, S_IWUSR | S_IRUGO, get_fifo_length,
 															set_fifo_length);
 static DEVICE_ATTR(reset_steps, S_IWUSR, NULL, reset_steps);
+static DEVICE_ATTR(get_hw_fifo_lenght, S_IRUGO, get_hw_fifo_lenght, NULL);
 
 static struct attribute *lsm6ds3_accel_attribute[] = {
 	&dev_attr_enable.attr,
 	&dev_attr_polling_rate.attr,
 	&dev_attr_fifo_length.attr,
+	&dev_attr_get_hw_fifo_lenght.attr,
 	NULL,
 };
 
@@ -1408,6 +1419,7 @@ static struct attribute *lsm6ds3_gyro_attribute[] = {
 	&dev_attr_enable.attr,
 	&dev_attr_polling_rate.attr,
 	&dev_attr_fifo_length.attr,
+	&dev_attr_get_hw_fifo_lenght.attr,
 	NULL,
 };
 
@@ -1420,6 +1432,7 @@ static struct attribute *lsm6ds3_step_c_attribute[] = {
 	&dev_attr_enable.attr,
 	&dev_attr_fifo_length.attr,
 	&dev_attr_reset_steps.attr,
+	&dev_attr_get_hw_fifo_lenght.attr,
 	NULL,
 };
 
