@@ -141,7 +141,6 @@ struct lsm6ds3_data {
 	const char *name;
 
 	bool reset_steps;
-	bool fifo_reconfigured;
 	bool sign_motion_event_ready;
 	u16 steps_c;
 

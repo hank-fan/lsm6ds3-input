@@ -405,11 +405,6 @@ static void lsm6ds3_push_data_with_timestamp(struct lsm6ds3_sensor_data *sdata,
 {
 	s32 data[3];
 
-	if (sdata->sample_to_discard > 0) {
-		sdata->sample_to_discard--;
-		return;
-	}
-
 	data[0] = (s32)((s16)(sdata->cdata->fifo_data_buffer[offset] |
 							(sdata->cdata->fifo_data_buffer[offset + 1] << 8)));
 	data[1] = (s32)((s16)(sdata->cdata->fifo_data_buffer[offset + 2] |
@@ -438,43 +433,33 @@ static void lsm6ds3_parse_fifo_data(struct lsm6ds3_data *cdata, u16 read_len)
 
 		do {
 			if (gyro_sip > 0) {
-				if (cdata->fifo_reconfigured) {
-					cdata->sensors[LSM6DS3_GYRO].timestamp = cdata->timestamp;
-					cdata->fifo_reconfigured = false;
-				} else
-					cdata->sensors[LSM6DS3_GYRO].timestamp +=
-										cdata->sensors[LSM6DS3_GYRO].deltatime;
+				if (cdata->sensors[LSM6DS3_GYRO].sample_to_discard > 0)
+					cdata->sensors[LSM6DS3_GYRO].sample_to_discard--;
+				else
+					lsm6ds3_push_data_with_timestamp(&cdata->sensors[LSM6DS3_GYRO],
+									fifo_offset,
+									cdata->sensors[LSM6DS3_GYRO].timestamp);
 
-				lsm6ds3_push_data_with_timestamp(&cdata->sensors[LSM6DS3_GYRO],
-							fifo_offset, cdata->sensors[LSM6DS3_GYRO].timestamp);
-
+				cdata->sensors[LSM6DS3_GYRO].timestamp +=
+									cdata->sensors[LSM6DS3_GYRO].deltatime;
 				fifo_offset += LSM6DS3_FIFO_ELEMENT_LEN_BYTE;
 				gyro_sip--;
 			}
 
 			if (accel_sip > 0) {
-				if (cdata->fifo_reconfigured) {
-					cdata->sensors[LSM6DS3_ACCEL].timestamp = cdata->timestamp;
-					cdata->fifo_reconfigured = false;
-				} else
-					cdata->sensors[LSM6DS3_ACCEL].timestamp +=
-									cdata->sensors[LSM6DS3_ACCEL].deltatime;
-
-				lsm6ds3_push_data_with_timestamp(&cdata->sensors[LSM6DS3_ACCEL],
+				if (cdata->sensors[LSM6DS3_ACCEL].sample_to_discard > 0)
+									cdata->sensors[LSM6DS3_ACCEL].sample_to_discard--;
+				else
+					lsm6ds3_push_data_with_timestamp(&cdata->sensors[LSM6DS3_ACCEL],
 						fifo_offset, cdata->sensors[LSM6DS3_ACCEL].timestamp);
 
+				cdata->sensors[LSM6DS3_ACCEL].timestamp +=
+									cdata->sensors[LSM6DS3_ACCEL].deltatime;
 				fifo_offset += LSM6DS3_FIFO_ELEMENT_LEN_BYTE;
 				accel_sip--;
 			}
 
 			if (step_c_sip > 0) {
-				if (cdata->fifo_reconfigured) {
-					cdata->sensors[LSM6DS3_STEP_COUNTER].timestamp = cdata->timestamp;
-					cdata->fifo_reconfigured = false;
-				} else
-					cdata->sensors[LSM6DS3_STEP_COUNTER].timestamp +=
-									cdata->sensors[LSM6DS3_STEP_COUNTER].deltatime;
-
 				steps_c = cdata->fifo_data_buffer[fifo_offset + 4] |
 								(cdata->fifo_data_buffer[fifo_offset + 5] << 8);
 				if (cdata->steps_c != steps_c) {
@@ -483,6 +468,8 @@ static void lsm6ds3_parse_fifo_data(struct lsm6ds3_data *cdata, u16 read_len)
 									cdata->sensors[LSM6DS3_STEP_COUNTER].timestamp);
 					cdata->steps_c = steps_c;
 				}
+				cdata->sensors[LSM6DS3_STEP_COUNTER].timestamp +=
+									cdata->sensors[LSM6DS3_STEP_COUNTER].deltatime;
 				fifo_offset += LSM6DS3_FIFO_ELEMENT_LEN_BYTE;
 				step_c_sip--;
 			}
@@ -527,6 +514,7 @@ void lsm6ds3_read_fifo(struct lsm6ds3_data *cdata, bool check_fifo_len)
 
 static int lsm6ds3_set_fifo_enable(struct lsm6ds3_data *cdata, bool status)
 {
+	int err;
 	u8 reg_value;
 
 	if (status)
@@ -534,10 +522,20 @@ static int lsm6ds3_set_fifo_enable(struct lsm6ds3_data *cdata, bool status)
 	else
 		reg_value = LSM6DS3_FIFO_ODR_OFF;
 
-	return lsm6ds3_write_data_with_mask(cdata,
+	err = lsm6ds3_write_data_with_mask(cdata,
 					LSM6DS3_FIFO_ODR_ADDR,
 					LSM6DS3_FIFO_ODR_MASK,
 					reg_value, true);
+	if (err < 0)
+		return err;
+
+	cdata->sensors[LSM6DS3_ACCEL].timestamp = lsm6ds3_get_time_ns();
+	cdata->sensors[LSM6DS3_GYRO].timestamp =
+									cdata->sensors[LSM6DS3_ACCEL].timestamp;
+	cdata->sensors[LSM6DS3_STEP_COUNTER].timestamp =
+										cdata->sensors[LSM6DS3_ACCEL].timestamp;
+
+	return 0;
 }
 
 int lsm6ds3_set_fifo_mode(struct lsm6ds3_data *cdata, enum fifo_mode fm)
@@ -680,8 +678,6 @@ int lsm6ds3_set_fifo_decimators_and_threshold(struct lsm6ds3_data *cdata)
 		if (!cdata->fifo_data_buffer)
 			return -ENOMEM;
 	}
-
-	cdata->fifo_reconfigured = true;
 
 	return fifo_len;
 }
