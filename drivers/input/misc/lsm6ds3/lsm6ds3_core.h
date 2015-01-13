@@ -91,6 +91,9 @@ enum fifo_mode {
 #define INPUT_EVENT_TIME_MSB		MSC_SCAN
 #define INPUT_EVENT_TIME_LSB		MSC_MAX
 
+#define LSM6DS3_RX_MAX_LENGTH	(500)
+#define LSM6DS3_TX_MAX_LENGTH	(500)
+
 #define to_dev(obj) container_of(obj, struct device, kobj)
 
 struct reg_rw {
