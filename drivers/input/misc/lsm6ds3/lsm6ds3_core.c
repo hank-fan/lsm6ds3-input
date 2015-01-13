@@ -1343,7 +1343,7 @@ static ssize_t set_polling_rate(struct device *dev,
 	err = lsm6ds3_set_odr(sdata, odr);
 	mutex_unlock(&sdata->input_dev->mutex);
 
-	return count;
+	return (err < 0 ? err : count);
 }
 
 static ssize_t get_fifo_length(struct device *dev,
