@@ -1265,6 +1265,9 @@ static int lsm6ds3_set_odr(struct lsm6ds3_sensor_data *sdata, u32 odr)
 	if (i == LSM6DS3_ODR_LIST_NUM)
 		return -EINVAL;
 
+	if (sdata->c_odr == lsm6ds3_odr_table.odr_avl[i].hz)
+		return 0;
+
 	if (sdata->enabled) {
 		disable_irq(sdata->cdata->irq);
 		lsm6ds3_flush_works();
