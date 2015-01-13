@@ -121,12 +121,6 @@ struct lsm6ds3_transfer_function {
 																bool b_lock);
 };
 
-struct lsm6ds3_steps {
-	bool new_steps;
-	u16 steps;
-	int64_t last_step_timestamp;
-};
-
 struct lsm6ds3_sensor_data {
 	struct lsm6ds3_data *cdata;
 	const char* name;
@@ -142,7 +136,6 @@ struct lsm6ds3_sensor_data {
 
 	struct hrtimer hr_timer;
 	struct input_dev *input_dev;
-	void *private_data;
 };
 
 struct lsm6ds3_data {

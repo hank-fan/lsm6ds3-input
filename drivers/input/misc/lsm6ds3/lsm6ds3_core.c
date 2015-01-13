@@ -560,7 +560,7 @@ int lsm6ds3_set_fifo_mode(struct lsm6ds3_data *cdata, enum fifo_mode fm)
 int lsm6ds3_set_fifo_decimators_and_threshold(struct lsm6ds3_data *cdata)
 {
 	int err;
-	unsigned int min_odr = 416, max_odr = 0, step_c_odr;
+	unsigned int min_odr = 416, max_odr = 0;
 	u8 decimator = 0;
 	struct lsm6ds3_sensor_data *sdata_accel, *sdata_gyro, *sdata_step_c;
 	u16 fifo_len = 0, fifo_threshold;
