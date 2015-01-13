@@ -583,37 +583,31 @@ int lsm6ds3_set_fifo_decimators_and_threshold(struct lsm6ds3_data *cdata)
 	unsigned int min_odr = 416, max_odr = 0, step_c_odr;
 	u8 decimator = 0;
 	struct lsm6ds3_sensor_data *sdata_accel, *sdata_gyro, *sdata_step_c;
-	u16 fifo_len, fifo_threshold;
+	u16 fifo_len = 0, fifo_threshold;
 	u16 min_num_pattern, num_pattern;
 
-	min_num_pattern = FIFO_SIZE_BYTE / LSM6DS3_FIFO_ELEMENT_LEN_BYTE;
+	min_num_pattern = LSM6DS3_MAX_FIFO_SIZE / LSM6DS3_FIFO_ELEMENT_LEN_BYTE;
 	sdata_accel = &cdata->sensors[LSM6DS3_ACCEL];
 	if (sdata_accel->enabled) {
-		if (min_odr > sdata_accel->c_odr)
-			min_odr = sdata_accel->c_odr;
-
-		if (max_odr < sdata_accel->c_odr)
-			max_odr = sdata_accel->c_odr;
+		min_odr = MIN(min_odr, sdata_accel->c_odr);
+		max_odr = MAX(max_odr, sdata_accel->c_odr);
 	}
 
 	sdata_gyro = &cdata->sensors[LSM6DS3_GYRO];
 	if (sdata_gyro->enabled) {
-		if (min_odr > sdata_gyro->c_odr)
-			min_odr = sdata_gyro->c_odr;
-
-		if (max_odr < sdata_gyro->c_odr)
-			max_odr = sdata_gyro->c_odr;
+		min_odr = MIN(min_odr, sdata_gyro->c_odr);
+		max_odr = MAX(max_odr, sdata_gyro->c_odr);
 	}
 
 	sdata_step_c = &cdata->sensors[LSM6DS3_STEP_COUNTER];
 	if (sdata_step_c->enabled) {
-		if (min_odr > sdata_step_c->c_odr)
-			min_odr = sdata_step_c->c_odr;
+		min_odr = MIN(min_odr, sdata_step_c->c_odr);
 	}
 
 	if (sdata_accel->enabled) {
 		sdata_accel->sample_in_pattern = (sdata_accel->c_odr / min_odr);
-		num_pattern = sdata_accel->fifo_length / sdata_accel->sample_in_pattern;
+		fifo_len += sdata_accel->sample_in_pattern;
+		num_pattern = MAX(sdata_accel->fifo_length / sdata_accel->sample_in_pattern, 1);
 		min_num_pattern = MIN(min_num_pattern, num_pattern);
 		sdata_accel->deltatime = (1000000000ULL / sdata_accel->c_odr);
 		decimator = max_odr / sdata_accel->c_odr;
@@ -631,7 +625,8 @@ int lsm6ds3_set_fifo_decimators_and_threshold(struct lsm6ds3_data *cdata)
 
 	if (sdata_gyro->enabled) {
 		sdata_gyro->sample_in_pattern = (sdata_gyro->c_odr / min_odr);
-		num_pattern = sdata_gyro->fifo_length / sdata_gyro->sample_in_pattern;
+		fifo_len += sdata_gyro->sample_in_pattern;
+		num_pattern = MAX(sdata_gyro->fifo_length / sdata_gyro->sample_in_pattern, 1);
 		min_num_pattern = MIN(min_num_pattern, num_pattern);
 		sdata_gyro->deltatime = (1000000000ULL / sdata_gyro->c_odr);
 		decimator = max_odr / sdata_gyro->c_odr;
@@ -649,13 +644,11 @@ int lsm6ds3_set_fifo_decimators_and_threshold(struct lsm6ds3_data *cdata)
 
 	if (sdata_step_c->enabled) {
 		sdata_step_c->sample_in_pattern = (sdata_step_c->c_odr / min_odr);
-		num_pattern = sdata_step_c->fifo_length / sdata_step_c->sample_in_pattern;
+		fifo_len += sdata_step_c->sample_in_pattern;
+		num_pattern = MAX(sdata_step_c->fifo_length / sdata_step_c->sample_in_pattern, 1);
 		min_num_pattern = MIN(min_num_pattern, num_pattern);
 		sdata_step_c->deltatime = (1000000000ULL / sdata_step_c->c_odr);
-		if (!max_odr)
-			decimator = 1;
-		else
-			decimator = max_odr / sdata_step_c->c_odr;
+		decimator = MAX(max_odr / sdata_step_c->c_odr, 1);
 	} else {
 		sdata_step_c->sample_in_pattern = 0;
 		decimator = 0;
@@ -668,8 +661,7 @@ int lsm6ds3_set_fifo_decimators_and_threshold(struct lsm6ds3_data *cdata)
 	if (err < 0)
 		return err;
 
-	fifo_len = (sdata_accel->sample_in_pattern + sdata_gyro->sample_in_pattern + sdata_step_c->sample_in_pattern)
-							* min_num_pattern * LSM6DS3_FIFO_ELEMENT_LEN_BYTE;
+	fifo_len *= (min_num_pattern * LSM6DS3_FIFO_ELEMENT_LEN_BYTE);
 
 	if (fifo_len > 0) {
 		fifo_threshold = fifo_len;
@@ -1566,11 +1558,11 @@ int lsm6ds3_common_probe(struct lsm6ds3_data *cdata, int irq, u16 bustype)
 			return err;
 	}
 
-	cdata->fifo_data_buffer = kmalloc(FIFO_SIZE_BYTE, GFP_KERNEL);
+	cdata->fifo_data_buffer = kmalloc(LSM6DS3_MAX_FIFO_SIZE, GFP_KERNEL);
 	if (!cdata->fifo_data_buffer)
 			return -ENOMEM;
 
-	cdata->fifo_data_size = FIFO_SIZE_BYTE;
+	cdata->fifo_data_size = LSM6DS3_MAX_FIFO_SIZE;
 
 	dev_info(cdata->dev, "%s: probed\n", LSM6DS3_ACC_GYR_DEV_NAME);
 	return 0;
