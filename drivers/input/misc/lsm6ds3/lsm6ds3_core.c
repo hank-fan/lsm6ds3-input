@@ -845,7 +845,7 @@ int lsm6ds3_allocate_workqueue(struct lsm6ds3_data *cdata)
 	INIT_WORK(&cdata->input_work, lsm6ds3_irq_management);
 
 	err = request_threaded_irq(cdata->irq, lsm6ds3_save_timestamp, NULL,
-			IRQF_TRIGGER_RISING, cdata->name, cdata);
+			IRQF_TRIGGER_HIGH, cdata->name, cdata);
 	if (err)
 		return err;
 
