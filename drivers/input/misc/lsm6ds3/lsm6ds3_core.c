@@ -166,6 +166,9 @@
 #define LSM6DS3_FIFO_DIFF_MASK		0x0fff
 #define LSM6DS3_FIFO_DATA_OUT_L		0x3e
 #define LSM6DS3_FIFO_ELEMENT_LEN_BYTE	6
+#define LSM6DS3_FIFO_BYTE_FOR_CHANNEL	2
+#define LSM6DS3_FIFO_DATA_OVR_2REGS		0x4000
+#define LSM6DS3_FIFO_DATA_OVR		0x40
 
 #define LSM6DS3_SRC_FUNC_ADDR		0x53
 #define LSM6DS3_FIFO_DATA_AVL_ADDR		0x3b
@@ -482,7 +485,7 @@ static void lsm6ds3_parse_fifo_data(struct lsm6ds3_data *cdata, u16 read_len)
 void lsm6ds3_read_fifo(struct lsm6ds3_data *cdata, bool check_fifo_len)
 {
 	int err;
-	u16 read_len;
+	u16 read_len = cdata->fifo_threshold;
 
 	if (!cdata->fifo_data_buffer)
 		return;
@@ -494,12 +497,11 @@ void lsm6ds3_read_fifo(struct lsm6ds3_data *cdata, bool check_fifo_len)
 			return;
 
 		read_len &= LSM6DS3_FIFO_DIFF_MASK;
-		read_len *= 2;
+		read_len *= LSM6DS3_FIFO_BYTE_FOR_CHANNEL;
 
 		if (read_len > cdata->fifo_threshold)
 			read_len = cdata->fifo_threshold;
-	} else
-		read_len = cdata->fifo_threshold;
+	}
 
 	if (read_len == 0)
 		return;
