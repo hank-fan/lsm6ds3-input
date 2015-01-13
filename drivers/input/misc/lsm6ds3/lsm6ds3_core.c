@@ -250,7 +250,7 @@ struct lsm6ds3_fs_reg {
 	u8 value;
 };
 
-static struct st_lsm6ds3_fs_table {
+static struct lsm6ds3_fs_table {
 	u8 addr;
 	u8 mask;
 	struct lsm6ds3_fs_reg fs_avl[LSM6DS3_FS_LIST_NUM];
