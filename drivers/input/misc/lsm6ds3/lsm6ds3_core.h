@@ -124,7 +124,7 @@ struct lsm6ds3_transfer_function {
 struct lsm6ds3_sensor_data {
 	struct lsm6ds3_data *cdata;
 	const char* name;
-	int64_t timestamp;
+	s64 timestamp;
 	u8 enabled;
 	u32 c_odr;
 	u32 c_gain;
