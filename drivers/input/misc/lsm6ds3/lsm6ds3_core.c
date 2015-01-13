@@ -293,7 +293,7 @@ static struct lsm6ds3_fs_table {
 
 static struct workqueue_struct *lsm6ds3_workqueue = 0;
 
-static inline void lsm6ds3_flush_works()
+static inline void lsm6ds3_flush_works(void)
 {
 	flush_workqueue(lsm6ds3_workqueue);
 }
