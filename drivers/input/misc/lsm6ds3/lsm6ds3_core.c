@@ -173,6 +173,8 @@
 #define LSM6DS3_SRC_TILT_DATA_AVL		0x20
 #define LSM6DS3_SRC_STEP_COUNTER_DATA_AVL	0x80
 #define LSM6DS3_FIFO_DATA_AVL		0x80
+#define LSM6DS3_RESET_ADDR			0x12
+#define LSM6DS3_RESET_MASK			0x01
 
 #define MSEC							(1000)
 #define NSEC							(1000000000)
@@ -1171,6 +1173,11 @@ static int lsm6ds3_init_sensors(struct lsm6ds3_data *cdata)
 
 	cdata->gyro_selftest_status = 0;
 	cdata->accel_selftest_status = 0;
+
+	err = lsm6ds3_write_data_with_mask(cdata, LSM6DS3_RESET_ADDR,
+				LSM6DS3_RESET_MASK, LSM6DS3_EN_BIT, true);
+	if (err < 0)
+		return err;
 
 	err = lsm6ds3_write_data_with_mask(cdata,
 					LSM6DS3_LIR_ADDR,
