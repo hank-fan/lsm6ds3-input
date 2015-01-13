@@ -1412,6 +1412,23 @@ static ssize_t reset_steps(struct device *dev,
 	return count;
 }
 
+static ssize_t flush_fifo(struct device *dev,
+					struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct lsm6ds3_sensor_data *sdata = dev_get_drvdata(dev);
+
+	disable_irq(sdata->cdata->irq);
+	lsm6ds3_flush_works();
+
+	mutex_lock(&sdata->cdata->fifo_lock);
+	lsm6ds3_read_fifo(sdata->cdata, true);
+	mutex_unlock(&sdata->cdata->fifo_lock);
+
+	enable_irq(sdata->cdata->irq);
+
+	return size;
+}
+
 static DEVICE_ATTR(enable, S_IWUSR | S_IRUGO, get_enable, set_enable);
 static DEVICE_ATTR(polling_rate, S_IWUSR | S_IRUGO, get_polling_rate,
 															set_polling_rate);
@@ -1419,12 +1436,14 @@ static DEVICE_ATTR(fifo_length, S_IWUSR | S_IRUGO, get_fifo_length,
 															set_fifo_length);
 static DEVICE_ATTR(reset_steps, S_IWUSR, NULL, reset_steps);
 static DEVICE_ATTR(get_hw_fifo_lenght, S_IRUGO, get_hw_fifo_lenght, NULL);
+static DEVICE_ATTR(flush_fifo, S_IWUSR, NULL, flush_fifo);
 
 static struct attribute *lsm6ds3_accel_attribute[] = {
 	&dev_attr_enable.attr,
 	&dev_attr_polling_rate.attr,
 	&dev_attr_fifo_length.attr,
 	&dev_attr_get_hw_fifo_lenght.attr,
+	&dev_attr_flush_fifo.attr,
 	NULL,
 };
 
@@ -1433,6 +1452,7 @@ static struct attribute *lsm6ds3_gyro_attribute[] = {
 	&dev_attr_polling_rate.attr,
 	&dev_attr_fifo_length.attr,
 	&dev_attr_get_hw_fifo_lenght.attr,
+	&dev_attr_flush_fifo.attr,
 	NULL,
 };
 
@@ -1446,6 +1466,7 @@ static struct attribute *lsm6ds3_step_c_attribute[] = {
 	&dev_attr_fifo_length.attr,
 	&dev_attr_reset_steps.attr,
 	&dev_attr_get_hw_fifo_lenght.attr,
+	&dev_attr_flush_fifo.attr,
 	NULL,
 };
 
