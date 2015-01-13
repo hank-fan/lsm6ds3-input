@@ -150,6 +150,7 @@ struct lsm6ds3_data {
 
 	bool reset_steps;
 	bool fifo_reconfigured;
+	bool sign_motion_event_ready;
 
 	u8 drdy_int_pin;
 	u8 gyro_selftest_status;

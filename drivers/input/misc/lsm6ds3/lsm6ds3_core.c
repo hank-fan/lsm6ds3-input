@@ -759,11 +759,11 @@ int lsm6ds3_set_drdy_irq(struct lsm6ds3_sensor_data *sdata, bool state)
 		mask = LSM6DS3_FIFO_THR_IRQ_MASK;
 		break;
 	case LSM6DS3_SIGN_MOTION:
-		reg_addr = LSM6DS3_INT1_CTRL_ADDR;
-		mask = LSM6DS3_SIGN_MOTION_DRDY_IRQ_MASK;
-		break;
-	//case LSM6DS3_STEP_COUNTER:
 	case LSM6DS3_STEP_DETECTOR:
+		if ((sdata->cdata->sensors[LSM6DS3_STEP_DETECTOR].enabled) ||
+							(sdata->cdata->sensors[LSM6DS3_SIGN_MOTION].enabled))
+			return 0;
+
 		reg_addr = LSM6DS3_INT1_CTRL_ADDR;
 		mask = LSM6DS3_STEP_DETECTOR_DRDY_IRQ_MASK;
 		break;
@@ -831,21 +831,17 @@ static void lsm6ds3_irq_management(struct work_struct *input_work)
 	if (src_fifo & LSM6DS3_FIFO_DATA_AVL)
 		lsm6ds3_read_fifo(cdata, false);
 
-	if (src_value & LSM6DS3_SRC_SIGN_MOTION_DATA_AVL) {
-		cdata->sensors[LSM6DS3_SIGN_MOTION].timestamp = cdata->timestamp;
-		printk("Significat Motion data available. Implement pushing event function!!!!\n\n");
-	}
-
 	if (src_value & LSM6DS3_SRC_STEP_DETECTOR_DATA_AVL) {
 		sdata = &cdata->sensors[LSM6DS3_STEP_DETECTOR];
 		sdata->timestamp = cdata->timestamp;
 		lsm6ds3_report_single_event(sdata, 1, sdata->timestamp);
-	}
 
-	if (src_value & LSM6DS3_SRC_STEP_COUNTER_DATA_AVL) {
-		sdata = &cdata->sensors[LSM6DS3_STEP_COUNTER];
-		sdata->timestamp = cdata->timestamp;
-		lsm6ds3_read_step_counter_event(sdata);
+		if (cdata->sign_motion_event_ready) {
+			sdata = &cdata->sensors[LSM6DS3_SIGN_MOTION];
+			sdata->timestamp = cdata->timestamp;
+			lsm6ds3_report_single_event(sdata, 1, sdata->timestamp);
+			cdata->sign_motion_event_ready = false;
+		}
 	}
 
 	if (src_value & LSM6DS3_SRC_TILT_DATA_AVL) {
@@ -992,6 +988,29 @@ static int lsm6ds3_enable_sensors(struct lsm6ds3_sensor_data *sdata)
 		if (err < 0)
 			return err;
 
+		if ((sdata->cdata->sensors[LSM6DS3_STEP_COUNTER].enabled) ||
+				(sdata->cdata->sensors[LSM6DS3_STEP_DETECTOR].enabled)) {
+			err = lsm6ds3_write_data_with_mask(sdata->cdata,
+											LSM6DS3_PEDOMETER_EN_ADDR,
+											LSM6DS3_PEDOMETER_EN_MASK,
+											LSM6DS3_DIS_BIT, true);
+			if (err < 0)
+				return err;
+
+			err = lsm6ds3_write_data_with_mask(sdata->cdata,
+											LSM6DS3_PEDOMETER_EN_ADDR,
+											LSM6DS3_PEDOMETER_EN_MASK,
+											LSM6DS3_EN_BIT, true);
+			if (err < 0)
+				return err;
+		} else {
+			err = lsm6ds3_enable_pedometer(sdata, true);
+			if (err < 0)
+				return err;
+		}
+
+		sdata->cdata->sign_motion_event_ready = true;
+
 		break;
 	case LSM6DS3_STEP_COUNTER:
 	case LSM6DS3_STEP_DETECTOR:
@@ -1075,6 +1094,12 @@ static int lsm6ds3_disable_sensors(struct lsm6ds3_sensor_data *sdata)
 									LSM6DS3_DIS_BIT, true);
 		if (err < 0)
 			return err;
+
+		err = lsm6ds3_enable_pedometer(sdata, false);
+		if (err < 0)
+			return err;
+
+		sdata->cdata->sign_motion_event_ready = false;
 
 		break;
 	case LSM6DS3_STEP_COUNTER:
