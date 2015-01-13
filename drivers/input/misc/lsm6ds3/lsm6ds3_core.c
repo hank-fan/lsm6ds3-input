@@ -467,17 +467,12 @@ static void lsm6ds3_parse_fifo_data(struct lsm6ds3_data *cdata, u16 read_len)
 
 				steps_c = cdata->fifo_data_buffer[fifo_offset + 4] |
 								(cdata->fifo_data_buffer[fifo_offset + 5] << 8);
-			/*	printk("steps = %d 0x%x:0x%x:0x%x:0x%x:0x%x:0x%x\n", steps_c,
-						cdata->fifo_data_buffer[fifo_offset],
-						cdata->fifo_data_buffer[fifo_offset + 1],
-						cdata->fifo_data_buffer[fifo_offset + 2],
-						cdata->fifo_data_buffer[fifo_offset + 3],
-						cdata->fifo_data_buffer[fifo_offset + 4],
-						cdata->fifo_data_buffer[fifo_offset + 5]);*/
-				lsm6ds3_report_single_event(&cdata->sensors[LSM6DS3_STEP_COUNTER],
-								steps_c,
-								cdata->sensors[LSM6DS3_STEP_COUNTER].timestamp);
-
+				if (cdata->steps_c != steps_c) {
+					lsm6ds3_report_single_event(&cdata->sensors[LSM6DS3_STEP_COUNTER],
+									steps_c,
+									cdata->sensors[LSM6DS3_STEP_COUNTER].timestamp);
+					cdata->steps_c = steps_c;
+				}
 				fifo_offset += LSM6DS3_FIFO_ELEMENT_LEN_BYTE;
 				step_c_sip--;
 			}
@@ -518,23 +513,6 @@ void lsm6ds3_read_fifo(struct lsm6ds3_data *cdata, bool check_fifo_len)
 		return;
 
 	lsm6ds3_parse_fifo_data(cdata, read_len);
-}
-
-s32 lsm6ds3_read_step_counter_event(struct lsm6ds3_sensor_data *sdata)
-{
-	int err;
-	u32 steps = 0;
-
-	err = sdata->cdata->tf->read(sdata->cdata,
-									LSM6DS3_STEP_COUNTER_OUT_L_ADDR,
-									2,
-									(u8 *)&steps, true);
-	if (err < 0)
-		return err;
-
-	lsm6ds3_report_single_event(sdata, steps, sdata->timestamp);
-
-	return 0;
 }
 
 static int lsm6ds3_set_fifo_enable(struct lsm6ds3_data *cdata, bool status)
@@ -1198,6 +1176,8 @@ static int lsm6ds3_init_sensors(struct lsm6ds3_data *cdata)
 
 	cdata->gyro_selftest_status = 0;
 	cdata->accel_selftest_status = 0;
+	cdata->steps_c = 0;
+	cdata->reset_steps = false;
 
 	err = lsm6ds3_write_data_with_mask(cdata, LSM6DS3_RESET_ADDR,
 				LSM6DS3_RESET_MASK, LSM6DS3_EN_BIT, true);
