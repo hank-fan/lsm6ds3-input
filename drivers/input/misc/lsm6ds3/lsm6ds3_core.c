@@ -1349,7 +1349,7 @@ static ssize_t set_enable(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
-static ssize_t get_polling_rate(struct device *dev,
+static ssize_t get_sampling_freq(struct device *dev,
 									struct device_attribute *attr, char *buf)
 {
 	struct lsm6ds3_sensor_data *sdata = dev_get_drvdata(dev);
@@ -1357,7 +1357,7 @@ static ssize_t get_polling_rate(struct device *dev,
 	return sprintf(buf, "%u\n", sdata->c_odr);
 }
 
-static ssize_t set_polling_rate(struct device *dev,
+static ssize_t set_sampling_freq(struct device *dev,
 				struct device_attribute *attr, const char *buf, size_t count)
 {
 	int err;
@@ -1457,8 +1457,8 @@ static ssize_t get_sampling_frequency_avail(struct device *dev,
 }
 
 static DEVICE_ATTR(enable, S_IWUSR | S_IRUGO, get_enable, set_enable);
-static DEVICE_ATTR(polling_rate, S_IWUSR | S_IRUGO, get_polling_rate,
-															set_polling_rate);
+static DEVICE_ATTR(sampling_freq, S_IWUSR | S_IRUGO, get_sampling_freq,
+															set_sampling_freq);
 static DEVICE_ATTR(fifo_length, S_IWUSR | S_IRUGO, get_fifo_length,
 															set_fifo_length);
 static DEVICE_ATTR(reset_steps, S_IWUSR, NULL, reset_steps);
@@ -1468,7 +1468,7 @@ static DEVICE_ATTR(sampling_freq_avail, S_IRUGO, get_sampling_frequency_avail, N
 
 static struct attribute *lsm6ds3_accel_attribute[] = {
 	&dev_attr_enable.attr,
-	&dev_attr_polling_rate.attr,
+	&dev_attr_sampling_freq.attr,
 	&dev_attr_fifo_length.attr,
 	&dev_attr_get_hw_fifo_lenght.attr,
 	&dev_attr_flush_fifo.attr,
@@ -1478,7 +1478,7 @@ static struct attribute *lsm6ds3_accel_attribute[] = {
 
 static struct attribute *lsm6ds3_gyro_attribute[] = {
 	&dev_attr_enable.attr,
-	&dev_attr_polling_rate.attr,
+	&dev_attr_sampling_freq.attr,
 	&dev_attr_fifo_length.attr,
 	&dev_attr_get_hw_fifo_lenght.attr,
 	&dev_attr_flush_fifo.attr,
