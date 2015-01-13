@@ -1247,7 +1247,7 @@ static int lsm6ds3_set_odr(struct lsm6ds3_sensor_data *sdata, u32 odr)
 	int err = 0, i;
 
 	for (i = 0; i < LSM6DS3_ODR_LIST_NUM; i++) {
-		if (lsm6ds3_odr_table.odr_avl[i].hz == odr)
+		if (lsm6ds3_odr_table.odr_avl[i].hz >= odr)
 			break;
 	}
 	if (i == LSM6DS3_ODR_LIST_NUM)
