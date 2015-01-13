@@ -496,6 +496,11 @@ void lsm6ds3_read_fifo(struct lsm6ds3_data *cdata, bool check_fifo_len)
 		if (err < 0)
 			return;
 
+		if (read_len & LSM6DS3_FIFO_DATA_OVR_2REGS) {
+			dev_err(cdata->dev, "data fifo overrun, failed to read it.\n");
+			return;
+		}
+
 		read_len &= LSM6DS3_FIFO_DIFF_MASK;
 		read_len *= LSM6DS3_FIFO_BYTE_FOR_CHANNEL;
 
@@ -814,8 +819,14 @@ static void lsm6ds3_irq_management(struct work_struct *input_work)
 	cdata->tf->read(cdata, LSM6DS3_SRC_FUNC_ADDR, 1, &src_value, true);
 	cdata->tf->read(cdata, LSM6DS3_FIFO_DATA_AVL_ADDR, 1, &src_fifo, true);
 
-	if (src_fifo & LSM6DS3_FIFO_DATA_AVL)
-		lsm6ds3_read_fifo(cdata, false);
+	if (src_fifo & LSM6DS3_FIFO_DATA_AVL) {
+		if (src_fifo & LSM6DS3_FIFO_DATA_OVR) {
+			lsm6ds3_set_fifo_mode(cdata, BYPASS);
+			lsm6ds3_set_fifo_mode(cdata, CONTINUOS);
+			dev_err(cdata->dev, "data fifo overrun, reduce fifo size.\n");
+		} else
+			lsm6ds3_read_fifo(cdata, false);
+	}
 
 	if (src_value & LSM6DS3_SRC_STEP_DETECTOR_DATA_AVL) {
 		sdata = &cdata->sensors[LSM6DS3_STEP_DETECTOR];
