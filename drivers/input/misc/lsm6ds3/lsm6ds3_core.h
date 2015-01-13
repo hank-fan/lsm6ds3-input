@@ -127,6 +127,7 @@ struct lsm6ds3_sensor_data {
 	u32 c_odr;
 	u32 c_gain;
 	u8 sindex;
+	u8 sample_to_discard;
 
 	u16 fifo_length;
 	u8 sample_in_pattern;

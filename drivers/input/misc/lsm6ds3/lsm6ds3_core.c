@@ -59,8 +59,6 @@
 #define LSM6DS3_SELFTEST_ADDR		0x14
 #define LSM6DS3_SELFTEST_ACCEL_MASK		0x03
 #define LSM6DS3_SELFTEST_GYRO_MASK		0x0c
-#define LSM6DS3_GYRO_READY_TIME_FROM_PD_MS	150
-#define LSM6DS3_ACCEL_READY_TIME_FROM_PD_MS	10
 #define LSM6DS3_SELF_TEST_DISABLED_VAL	0x00
 #define LSM6DS3_SELF_TEST_POS_SIGN_VAL	0x01
 #define LSM6DS3_SELF_TEST_NEG_ACCEL_SIGN_VAL	0x02
@@ -117,6 +115,8 @@
 #define LSM6DS3_ACCEL_OUT_Z_L_ADDR		0x2c
 #define LSM6DS3_ACCEL_AXIS_EN_ADDR		0x18
 #define LSM6DS3_ACCEL_DRDY_IRQ_MASK		0x01
+#define LSM6DS3_ACCEL_STD			1
+#define LSM6DS3_ACCEL_STD_FROM_PD		2
 
 /* CUSTOM VALUES FOR GYRO SENSOR */
 #define LSM6DS3_GYRO_ODR_ADDR		0x11
@@ -136,6 +136,8 @@
 #define LSM6DS3_GYRO_OUT_Z_L_ADDR		0x26
 #define LSM6DS3_GYRO_AXIS_EN_ADDR		0x19
 #define LSM6DS3_GYRO_DRDY_IRQ_MASK		0x02
+#define LSM6DS3_GYRO_STD			2
+#define LSM6DS3_GYRO_STD_FROM_PD		2
 
 /* CUSTOM VALUES FOR SIGNIFICANT MOTION SENSOR */
 #define LSM6DS3_SIGN_MOTION_EN_ADDR		0x19
@@ -402,6 +404,11 @@ static void lsm6ds3_push_data_with_timestamp(struct lsm6ds3_sensor_data *sdata,
 									u16 offset, int64_t timestamp)
 {
 	s32 data[3];
+
+	if (sdata->sample_to_discard > 0) {
+		sdata->sample_to_discard--;
+		return;
+	}
 
 	data[0] = (s32)((s16)(sdata->cdata->fifo_data_buffer[offset] |
 							(sdata->cdata->fifo_data_buffer[offset + 1] << 8)));
@@ -946,6 +953,13 @@ static int lsm6ds3_enable_sensors(struct lsm6ds3_sensor_data *sdata)
 		if (i == LSM6DS3_ODR_LIST_NUM)
 			return -EINVAL;
 
+		if (sdata->sindex == LSM6DS3_ACCEL)
+			sdata->sample_to_discard = LSM6DS3_ACCEL_STD +
+													LSM6DS3_ACCEL_STD_FROM_PD;
+
+		sdata->cdata->sensors[LSM6DS3_GYRO].sample_to_discard =
+								LSM6DS3_GYRO_STD + LSM6DS3_GYRO_STD_FROM_PD;
+
 		err = lsm6ds3_write_data_with_mask(sdata->cdata,
 				lsm6ds3_odr_table.addr[sdata->sindex],
 				lsm6ds3_odr_table.mask[sdata->sindex],
@@ -954,11 +968,6 @@ static int lsm6ds3_enable_sensors(struct lsm6ds3_sensor_data *sdata)
 			return err;
 
 		sdata->c_odr = lsm6ds3_odr_table.odr_avl[i].hz;
-
-		if (sdata->sindex == LSM6DS3_GYRO)
-			msleep(LSM6DS3_GYRO_READY_TIME_FROM_PD_MS);
-		else
-			msleep(LSM6DS3_ACCEL_READY_TIME_FROM_PD_MS);
 
 		break;
 	case LSM6DS3_SIGN_MOTION:
@@ -1274,6 +1283,14 @@ static int lsm6ds3_set_odr(struct lsm6ds3_sensor_data *sdata, u32 odr)
 	if (sdata->enabled) {
 		disable_irq(sdata->cdata->irq);
 		lsm6ds3_flush_works();
+
+		if (sdata->sindex == LSM6DS3_ACCEL)
+			sdata->cdata->sensors[LSM6DS3_ACCEL].sample_to_discard +=
+															LSM6DS3_ACCEL_STD;
+
+		if (sdata->cdata->sensors[LSM6DS3_GYRO].enabled)
+			sdata->cdata->sensors[LSM6DS3_GYRO].sample_to_discard +=
+															LSM6DS3_GYRO_STD;
 
 		err = lsm6ds3_write_data_with_mask(sdata->cdata,
 					lsm6ds3_odr_table.addr[sdata->sindex],
