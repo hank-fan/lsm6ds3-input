@@ -1877,6 +1877,7 @@ int lsm6ds3_common_probe(struct lsm6ds3_data *cdata, int irq, u16 bustype)
 	dev_info(cdata->dev, "%s: probed\n", LSM6DS3_ACC_GYR_DEV_NAME);
 	return 0;
 }
+EXPORT_SYMBOL(lsm6ds3_common_probe);
 
 void lsm6ds3_common_remove(struct lsm6ds3_data *cdata, int irq)
 {
@@ -1896,6 +1897,7 @@ void lsm6ds3_common_remove(struct lsm6ds3_data *cdata, int irq)
 
 	kfree(cdata->fifo_data_buffer);
 }
+EXPORT_SYMBOL(lsm6ds3_common_remove);
 
 #ifdef CONFIG_PM
 int lsm6ds3_common_suspend(struct lsm6ds3_data *cdata)
