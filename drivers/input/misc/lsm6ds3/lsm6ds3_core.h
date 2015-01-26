@@ -137,7 +137,7 @@ struct lsm6ds3_sensor_data {
 	s64 deltatime;
 
 	struct input_dev *input_dev;
-#if defined (CONFIG_POLLING_MODE)
+#if defined (CONFIG_LSM6DS3_POLLING_MODE)
 	unsigned int poll_interval;
 	struct hrtimer hr_timer;
 	struct work_struct input_work;
