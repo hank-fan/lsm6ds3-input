@@ -27,6 +27,10 @@
 #include	<linux/input/lsm6ds3.h>
 #include	"lsm6ds3_core.h"
 
+#if defined (CONFIG_POLLING_MODE)
+#include <linux/workqueue.h>
+#include <linux/hrtimer.h>
+#endif
 /* COMMON VALUES FOR ACCEL-GYRO SENSORS */
 #define LSM6DS3_WHO_AM_I			0x0f
 #define LSM6DS3_WHO_AM_I_DEF		0x69
@@ -139,6 +143,8 @@
 #define LSM6DS3_GYRO_STD				6
 #define LSM6DS3_GYRO_STD_FROM_PD		2
 
+#define LSM6DS3_OUT_XYZ_SIZE		8
+
 /* CUSTOM VALUES FOR SIGNIFICANT MOTION SENSOR */
 #define LSM6DS3_SIGN_MOTION_EN_ADDR		0x19
 #define LSM6DS3_SIGN_MOTION_EN_MASK		0x01
@@ -150,6 +156,7 @@
 /* CUSTOM VALUES FOR STEP COUNTER SENSOR */
 #define LSM6DS3_STEP_COUNTER_DRDY_IRQ_MASK	0x80
 #define LSM6DS3_STEP_COUNTER_OUT_L_ADDR	0x4b
+#define LSM6DS3_STEP_COUNTER_OUT_SIZE	2
 #define LSM6DS3_STEP_COUNTER_RES_ADDR	0x19
 #define LSM6DS3_STEP_COUNTER_RES_MASK	0x06
 #define LSM6DS3_STEP_COUNTER_RES_ALL_EN	0x03
@@ -403,6 +410,7 @@ static void lsm6ds3_report_single_event(struct lsm6ds3_sensor_data *sdata,
 	input_sync(input);
 }
 
+#if !defined (CONFIG_POLLING_MODE)
 static void lsm6ds3_push_data_with_timestamp(struct lsm6ds3_sensor_data *sdata,
 									u16 offset, int64_t timestamp)
 {
@@ -423,7 +431,89 @@ static void lsm6ds3_push_data_with_timestamp(struct lsm6ds3_sensor_data *sdata,
 	//					sdata->name, offset / 6, data[0], data[1], data[2], timestamp);
 	lsm6ds3_report_3axes_event(sdata, data, timestamp);
 }
+#else
+enum hrtimer_restart lsm6ds3_poll_function_read(struct hrtimer *timer)
+{
+	struct lsm6ds3_sensor_data *sdata;
 
+	sdata = container_of((struct hrtimer *)timer, struct lsm6ds3_sensor_data,
+							hr_timer);
+
+	queue_work(lsm6ds3_workqueue, &sdata->input_work);
+
+	return HRTIMER_NORESTART;
+}
+
+static int lsm6ds3_get_step_c_data(struct lsm6ds3_sensor_data *sdata, u16 *steps)
+{
+	u8 data[2];
+	int err = 0;
+	err = sdata->cdata->tf->read(sdata->cdata,
+									LSM6DS3_STEP_COUNTER_OUT_L_ADDR,
+									LSM6DS3_STEP_COUNTER_OUT_SIZE,
+									data, true);
+	if (err < 0)
+		return err;
+
+	*steps = data[0] | (data[1] << 8);
+
+	return 0;
+}
+
+static int lsm6ds3_get_poll_data(struct lsm6ds3_sensor_data *sdata, u8 *data)
+{
+	int err = 0;
+	u8 reg_addr;
+
+	switch(sdata->sindex) {
+	case LSM6DS3_ACCEL:
+		reg_addr = LSM6DS3_ACCEL_OUT_X_L_ADDR;
+
+		break;
+	case LSM6DS3_GYRO:
+		reg_addr = LSM6DS3_GYRO_OUT_X_L_ADDR;
+
+		break;
+	default:
+		dev_err(sdata->cdata->dev, "invalid polling mode for sensor %s\n",
+																sdata->name);
+		return -1;
+	}
+
+	err = sdata->cdata->tf->read(sdata->cdata, reg_addr, LSM6DS3_OUT_XYZ_SIZE,
+															data, true);
+
+	return err;
+}
+
+static void poll_function_work(struct work_struct *input_work)
+{
+	struct lsm6ds3_sensor_data *sdata;
+	int xyz[3] = { 0 };
+	u8 data[6];
+	int err;
+
+	sdata = container_of((struct work_struct *)input_work,
+			struct lsm6ds3_sensor_data, input_work);
+
+	err = lsm6ds3_get_poll_data(sdata, data);
+	if (err < 0)
+		dev_err(sdata->cdata->dev, "get %s data failed %d\n", sdata->name, err);
+	else {
+		xyz[0] = (s32)((s16)(data[0] | (data[1] << 8)));
+		xyz[1] = (s32)((s16)(data[2] | (data[3] << 8)));
+		xyz[2] = (s32)((s16)(data[4] | (data[5] << 8)));
+		xyz[0] *= sdata->c_gain;
+		xyz[1] *= sdata->c_gain;
+		xyz[2] *= sdata->c_gain;
+		lsm6ds3_report_3axes_event(sdata, xyz, lsm6ds3_get_time_ns());
+	}
+
+	hrtimer_start(&sdata->hr_timer, sdata->ktime, HRTIMER_MODE_REL);
+}
+#endif
+
+#if !defined (CONFIG_POLLING_MODE)
 static void lsm6ds3_parse_fifo_data(struct lsm6ds3_data *cdata, u16 read_len)
 {
 	u16 fifo_offset = 0, steps_c = 0;
@@ -727,6 +817,7 @@ reconfigure_fifo_irq_restore:
 
 	return err;
 }
+#endif
 
 int lsm6ds3_set_drdy_irq(struct lsm6ds3_sensor_data *sdata, bool state)
 {
@@ -741,6 +832,9 @@ int lsm6ds3_set_drdy_irq(struct lsm6ds3_sensor_data *sdata, bool state)
 	case LSM6DS3_ACCEL:
 	case LSM6DS3_GYRO:
 	case LSM6DS3_STEP_COUNTER:
+#if defined (CONFIG_POLLING_MODE)
+		return 0;
+#else
 		if ((sdata->cdata->sensors[LSM6DS3_GYRO].enabled) ||
 				(sdata->cdata->sensors[LSM6DS3_ACCEL].enabled) ||
 				(sdata->cdata->sensors[LSM6DS3_STEP_COUNTER].enabled))
@@ -749,6 +843,7 @@ int lsm6ds3_set_drdy_irq(struct lsm6ds3_sensor_data *sdata, bool state)
 		reg_addr = LSM6DS3_INT1_CTRL_ADDR;
 		mask = LSM6DS3_FIFO_THR_IRQ_MASK;
 		break;
+#endif
 	case LSM6DS3_SIGN_MOTION:
 	case LSM6DS3_STEP_DETECTOR:
 		if ((sdata->cdata->sensors[LSM6DS3_STEP_DETECTOR].enabled) ||
@@ -812,6 +907,8 @@ static void lsm6ds3_irq_management(struct work_struct *input_work)
 	struct lsm6ds3_data *cdata;
 	u8 src_value = 0x00, src_fifo = 0x00;
 	struct lsm6ds3_sensor_data *sdata;
+	u16 steps_c;
+	int err;
 
 	cdata = container_of((struct work_struct *)input_work,
 						struct lsm6ds3_data, input_work);
@@ -819,6 +916,7 @@ static void lsm6ds3_irq_management(struct work_struct *input_work)
 	cdata->tf->read(cdata, LSM6DS3_SRC_FUNC_ADDR, 1, &src_value, true);
 	cdata->tf->read(cdata, LSM6DS3_FIFO_DATA_AVL_ADDR, 1, &src_fifo, true);
 
+#if !defined(CONFIG_POLLING_MODE)
 	if (src_fifo & LSM6DS3_FIFO_DATA_AVL) {
 		if (src_fifo & LSM6DS3_FIFO_DATA_OVR) {
 			lsm6ds3_set_fifo_mode(cdata, BYPASS);
@@ -827,6 +925,25 @@ static void lsm6ds3_irq_management(struct work_struct *input_work)
 		} else
 			lsm6ds3_read_fifo(cdata, false);
 	}
+#else
+	if (src_value & LSM6DS3_SRC_STEP_COUNTER_DATA_AVL) {
+		sdata = &cdata->sensors[LSM6DS3_STEP_COUNTER];
+		sdata->timestamp = cdata->timestamp;
+		err = lsm6ds3_get_step_c_data(sdata, &steps_c);
+		if (err < 0) {
+			dev_err(cdata->dev, "error while reading step counter data\n");
+			enable_irq(cdata->irq);
+
+			return;
+		}
+
+		lsm6ds3_report_single_event(&cdata->sensors[LSM6DS3_STEP_COUNTER],
+								steps_c,
+								cdata->sensors[LSM6DS3_STEP_COUNTER].timestamp);
+		printk("reported %d steps\n", steps_c);
+		cdata->steps_c = steps_c;
+	}
+#endif
 
 	if (src_value & LSM6DS3_SRC_STEP_DETECTOR_DATA_AVL) {
 		sdata = &cdata->sensors[LSM6DS3_STEP_DETECTOR];
@@ -976,6 +1093,10 @@ static int lsm6ds3_enable_sensors(struct lsm6ds3_sensor_data *sdata)
 		if (err < 0)
 			return err;
 
+#if defined (CONFIG_POLLING_MODE)
+		hrtimer_start(&sdata->hr_timer, sdata->ktime, HRTIMER_MODE_REL);
+#endif
+
 		sdata->c_odr = lsm6ds3_odr_table.odr_avl[i].hz;
 
 		break;
@@ -1042,9 +1163,11 @@ static int lsm6ds3_enable_sensors(struct lsm6ds3_sensor_data *sdata)
 
 	sdata->enabled = true;
 
+#if !defined (CONFIG_POLLING_MODE)
 	err = lsm6ds3_reconfigure_fifo(sdata->cdata, true);
 	if (err < 0)
 		return err;
+#endif
 
 	return 0;
 }
@@ -1076,6 +1199,11 @@ static int lsm6ds3_disable_sensors(struct lsm6ds3_sensor_data *sdata)
 		if (err < 0)
 			return err;
 
+#if defined (CONFIG_POLLING_MODE)
+		cancel_work_sync(&sdata->input_work);
+		hrtimer_cancel(&sdata->hr_timer);
+#endif
+
 		break;
 	case LSM6DS3_GYRO:
 		err = lsm6ds3_write_data_with_mask(sdata->cdata,
@@ -1084,6 +1212,11 @@ static int lsm6ds3_disable_sensors(struct lsm6ds3_sensor_data *sdata)
 									LSM6DS3_ODR_POWER_OFF_VAL, true);
 		if (err < 0)
 			return err;
+
+#if defined (CONFIG_POLLING_MODE)
+		cancel_work_sync(&sdata->input_work);
+		hrtimer_cancel(&sdata->hr_timer);
+#endif
 
 		break;
 	case LSM6DS3_SIGN_MOTION:
@@ -1131,9 +1264,11 @@ static int lsm6ds3_disable_sensors(struct lsm6ds3_sensor_data *sdata)
 
 	sdata->enabled = false;
 
+#if !defined (CONFIG_POLLING_MODE)
 	err = lsm6ds3_reconfigure_fifo(sdata->cdata, true);
 	if (err < 0)
 		return err;
+#endif
 
 	return 0;
 }
@@ -1195,6 +1330,17 @@ static int lsm6ds3_init_sensors(struct lsm6ds3_data *cdata)
 		}
 	}
 
+#if defined (CONFIG_POLLING_MODE)
+	hrtimer_init(&cdata->sensors[LSM6DS3_ACCEL].hr_timer, CLOCK_MONOTONIC,
+															HRTIMER_MODE_REL);
+	hrtimer_init(&cdata->sensors[LSM6DS3_GYRO].hr_timer, CLOCK_MONOTONIC,
+															HRTIMER_MODE_REL);
+	cdata->sensors[LSM6DS3_ACCEL].hr_timer.function =
+												&lsm6ds3_poll_function_read;
+	cdata->sensors[LSM6DS3_GYRO].hr_timer.function =
+												&lsm6ds3_poll_function_read;
+#endif
+
 	cdata->gyro_selftest_status = 0;
 	cdata->accel_selftest_status = 0;
 	cdata->steps_c = 0;
@@ -1218,11 +1364,11 @@ static int lsm6ds3_init_sensors(struct lsm6ds3_data *cdata)
 					LSM6DS3_EN_BIT, true);
 	if (err < 0)
 		return err;
-
+#if !defined (CONFIG_POLLING_MODE)
 	err = lsm6ds3_set_fifo_enable(sdata->cdata, false);
 	if (err < 0)
 		return err;
-
+#endif
 	err = lsm6ds3_write_data_with_mask(cdata,
 					LSM6DS3_ROUNDING_ADDR,
 					LSM6DS3_ROUNDING_MASK,
@@ -1264,9 +1410,18 @@ static int lsm6ds3_init_sensors(struct lsm6ds3_data *cdata)
 		goto lsm6ds3_init_sensor_mutex_unlock;
 	mutex_unlock(&cdata->bank_registers_lock);
 
+#if defined (CONFIG_POLLING_MODE)
+	cdata->sensors[LSM6DS3_ACCEL].ktime = ktime_set(0,
+			MS_TO_NS(cdata->sensors[LSM6DS3_ACCEL].poll_interval));
+	cdata->sensors[LSM6DS3_GYRO].ktime = ktime_set(0,
+			MS_TO_NS(cdata->sensors[LSM6DS3_GYRO].poll_interval));
+	INIT_WORK(&cdata->sensors[LSM6DS3_ACCEL].input_work, poll_function_work);
+	INIT_WORK(&cdata->sensors[LSM6DS3_GYRO].input_work, poll_function_work);
+#else
 	err = lsm6ds3_reconfigure_fifo(cdata, false);
 	if (err < 0)
 		return err;
+#endif
 
 	return 0;
 
@@ -1312,10 +1467,11 @@ static int lsm6ds3_set_odr(struct lsm6ds3_sensor_data *sdata, u32 odr)
 		}
 
 		sdata->c_odr = lsm6ds3_odr_table.odr_avl[i].hz;
+#if !defined (CONFIG_POLLING_MODE)
 		err = lsm6ds3_reconfigure_fifo(sdata->cdata, false);
 		if (err < 0)
 			return err;
-
+#endif
 		enable_irq(sdata->cdata->irq);
 	} else
 		sdata->c_odr = lsm6ds3_odr_table.odr_avl[i].hz;
@@ -1349,6 +1505,43 @@ static ssize_t set_enable(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
+#if defined (CONFIG_POLLING_MODE)
+static ssize_t get_polling_rate(struct device *dev,
+									struct device_attribute *attr, char *buf)
+{
+	struct lsm6ds3_sensor_data *sdata = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%u\n", sdata->poll_interval);
+}
+
+static ssize_t set_polling_rate(struct device *dev,
+				struct device_attribute *attr, const char *buf, size_t count)
+{
+	int err;
+	unsigned int polling_rate;
+	struct lsm6ds3_sensor_data *sdata = dev_get_drvdata(dev);
+
+	err = kstrtoint(buf, 10, &polling_rate);
+	if (err < 0)
+		return err;
+
+	mutex_lock(&sdata->input_dev->mutex);
+	/*
+	 * Polling interval is in msec, then we have to convert it in Hz to
+	 * configure ODR through lsm6ds3_set_odr
+	 */
+	err = lsm6ds3_set_odr(sdata, 1000 / polling_rate);
+	if (!(err < 0)) {
+		sdata->poll_interval = polling_rate;
+		sdata->ktime = ktime_set(0, MS_TO_NS(polling_rate));
+		printk("set ktime for sensor %s %d %d\n", sdata->name, MS_TO_NS(polling_rate), polling_rate);
+	}
+	mutex_unlock(&sdata->input_dev->mutex);
+
+	return (err < 0 ? err : count);
+}
+#endif
+
 static ssize_t get_sampling_freq(struct device *dev,
 									struct device_attribute *attr, char *buf)
 {
@@ -1375,6 +1568,7 @@ static ssize_t set_sampling_freq(struct device *dev,
 	return (err < 0 ? err : count);
 }
 
+#if !defined (CONFIG_POLLING_MODE)
 static ssize_t get_fifo_length(struct device *dev,
 									struct device_attribute *attr, char *buf)
 {
@@ -1409,22 +1603,6 @@ static ssize_t get_hw_fifo_lenght(struct device *dev,
 	return sprintf(buf, "%d\n", LSM6DS3_MAX_FIFO_LENGHT);
 }
 
-static ssize_t reset_steps(struct device *dev,
-				struct device_attribute *attr, const char *buf, size_t count)
-{
-	int err;
-	unsigned int reset;
-	struct lsm6ds3_sensor_data *sdata = dev_get_drvdata(dev);
-
-	err = kstrtoint(buf, 10, &reset);
-	if (err < 0)
-		return err;
-
-	lsm6ds3_reset_steps(sdata->cdata);
-
-	return count;
-}
-
 static ssize_t flush_fifo(struct device *dev,
 					struct device_attribute *attr, const char *buf, size_t size)
 {
@@ -1440,6 +1618,23 @@ static ssize_t flush_fifo(struct device *dev,
 	enable_irq(sdata->cdata->irq);
 
 	return size;
+}
+#endif
+
+static ssize_t reset_steps(struct device *dev,
+				struct device_attribute *attr, const char *buf, size_t count)
+{
+	int err;
+	unsigned int reset;
+	struct lsm6ds3_sensor_data *sdata = dev_get_drvdata(dev);
+
+	err = kstrtoint(buf, 10, &reset);
+	if (err < 0)
+		return err;
+
+	lsm6ds3_reset_steps(sdata->cdata);
+
+	return count;
 }
 
 static ssize_t get_sampling_frequency_avail(struct device *dev,
@@ -1474,20 +1669,29 @@ static ssize_t get_scale_avail(struct device *dev,
 static DEVICE_ATTR(enable, S_IWUSR | S_IRUGO, get_enable, set_enable);
 static DEVICE_ATTR(sampling_freq, S_IWUSR | S_IRUGO, get_sampling_freq,
 															set_sampling_freq);
+#if !defined (CONFIG_POLLING_MODE)
 static DEVICE_ATTR(fifo_length, S_IWUSR | S_IRUGO, get_fifo_length,
 															set_fifo_length);
-static DEVICE_ATTR(reset_steps, S_IWUSR, NULL, reset_steps);
 static DEVICE_ATTR(get_hw_fifo_lenght, S_IRUGO, get_hw_fifo_lenght, NULL);
 static DEVICE_ATTR(flush_fifo, S_IWUSR, NULL, flush_fifo);
+#else
+static DEVICE_ATTR(polling_rate, S_IWUSR | S_IRUGO, get_polling_rate,
+															set_polling_rate);
+#endif
+static DEVICE_ATTR(reset_steps, S_IWUSR, NULL, reset_steps);
 static DEVICE_ATTR(sampling_freq_avail, S_IRUGO, get_sampling_frequency_avail, NULL);
 static DEVICE_ATTR(scale_avail, S_IRUGO, get_scale_avail, NULL);
 
 static struct attribute *lsm6ds3_accel_attribute[] = {
 	&dev_attr_enable.attr,
 	&dev_attr_sampling_freq.attr,
+#if defined (CONFIG_POLLING_MODE)
+	&dev_attr_polling_rate.attr,
+#else
 	&dev_attr_fifo_length.attr,
 	&dev_attr_get_hw_fifo_lenght.attr,
 	&dev_attr_flush_fifo.attr,
+#endif
 	&dev_attr_sampling_freq_avail.attr,
 	&dev_attr_scale_avail.attr,
 	NULL,
@@ -1496,9 +1700,13 @@ static struct attribute *lsm6ds3_accel_attribute[] = {
 static struct attribute *lsm6ds3_gyro_attribute[] = {
 	&dev_attr_enable.attr,
 	&dev_attr_sampling_freq.attr,
+#if defined (CONFIG_POLLING_MODE)
+	&dev_attr_polling_rate.attr,
+#else
 	&dev_attr_fifo_length.attr,
 	&dev_attr_get_hw_fifo_lenght.attr,
 	&dev_attr_flush_fifo.attr,
+#endif
 	&dev_attr_sampling_freq_avail.attr,
 	&dev_attr_scale_avail.attr,
 	NULL,
@@ -1511,10 +1719,12 @@ static struct attribute *lsm6ds3_sign_m_attribute[] = {
 
 static struct attribute *lsm6ds3_step_c_attribute[] = {
 	&dev_attr_enable.attr,
+#if !defined (CONFIG_POLLING_MODE)
 	&dev_attr_fifo_length.attr,
-	&dev_attr_reset_steps.attr,
 	&dev_attr_get_hw_fifo_lenght.attr,
 	&dev_attr_flush_fifo.attr,
+#endif
+	&dev_attr_reset_steps.attr,
 	NULL,
 };
 
@@ -1636,6 +1846,9 @@ int lsm6ds3_common_probe(struct lsm6ds3_data *cdata, int irq, u16 bustype)
 		if ((i == LSM6DS3_ACCEL) || (i == LSM6DS3_GYRO)) {
 			sdata->c_odr = lsm6ds3_odr_table.odr_avl[0].hz;
 			sdata->c_gain = lsm6ds3_fs_table[i].fs_avl[0].gain;
+#if defined (CONFIG_POLLING_MODE)
+			sdata->poll_interval = 1000 / sdata->c_odr;
+#endif
 		}
 		if (i == LSM6DS3_STEP_COUNTER) {
 			sdata->c_odr = LSM6DS3_FIFO_STEP_C_FREQ;
