@@ -190,19 +190,6 @@
 #define LSM6DS3_MAX_FIFO_SIZE		(8 * 1024)
 #define LSM6DS3_MAX_FIFO_LENGHT		(LSM6DS3_MAX_FIFO_SIZE / \
 												LSM6DS3_FIFO_ELEMENT_LEN_BYTE)
-
-#define MSEC							(1000)
-#define NSEC							(1000000000)
-#define MSEC_TO_SEC(tm)					(tm / MSEC)
-#define NSEC_TO_SEC(tn)					(tn / NSEC)
-#define MSEC_TO_NSEC(tm)				(tm * NSEC / MSEC)
-#define SEC_TO_HZ(s)					(1 / s)
-#define MSEC_TO_HZ(ms)					(MSEC / ms)
-#define NSEC_TO_HZ(ns)					(NSEC / ns)
-#define HZ_TO_SEC(h)					(1 / h)
-#define HZ_TO_MSEC(h)					(MSEC / h)
-#define HZ_TO_NSEC(h)					(NSEC / h)
-
 #ifndef MAX
 #define MAX(a, b)				(((a) > (b)) ? (a) : (b))
 #endif
