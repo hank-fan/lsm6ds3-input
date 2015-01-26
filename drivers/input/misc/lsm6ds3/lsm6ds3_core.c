@@ -366,7 +366,7 @@ static void lsm6ds3_input_cleanup(struct lsm6ds3_sensor_data *sdata)
 }
 
 static void lsm6ds3_report_3axes_event(struct lsm6ds3_sensor_data *sdata,
-													s32 *xyz, int64_t timestamp)
+													s32 *xyz, s64 timestamp)
 {
 	struct input_dev  * input  	= sdata->input_dev;
 
@@ -383,7 +383,7 @@ static void lsm6ds3_report_3axes_event(struct lsm6ds3_sensor_data *sdata,
 }
 
 static void lsm6ds3_report_single_event(struct lsm6ds3_sensor_data *sdata,
-													s32 data, int64_t timestamp)
+													s32 data, s64 timestamp)
 {
 	struct input_dev  * input  	= sdata->input_dev;
 
@@ -399,7 +399,7 @@ static void lsm6ds3_report_single_event(struct lsm6ds3_sensor_data *sdata,
 
 #if !defined (CONFIG_POLLING_MODE)
 static void lsm6ds3_push_data_with_timestamp(struct lsm6ds3_sensor_data *sdata,
-									u16 offset, int64_t timestamp)
+									u16 offset, s64 timestamp)
 {
 	s32 data[3];
 

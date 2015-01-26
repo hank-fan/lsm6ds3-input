@@ -134,7 +134,7 @@ struct lsm6ds3_sensor_data {
 
 	u16 fifo_length;
 	u8 sample_in_pattern;
-	int64_t deltatime;
+	s64 deltatime;
 
 	struct input_dev *input_dev;
 #if defined (CONFIG_POLLING_MODE)
@@ -159,7 +159,7 @@ struct lsm6ds3_data {
 	struct mutex lock;
 	int irq;
 
-	int64_t timestamp;
+	s64 timestamp;
 	struct work_struct input_work;
 	struct device *dev;
 	struct lsm6ds3_sensor_data sensors[LSM6DS3_SENSORS_NUMB];
