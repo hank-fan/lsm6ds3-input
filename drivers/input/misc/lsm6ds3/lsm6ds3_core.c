@@ -24,7 +24,7 @@
 #include <linux/of_gpio.h>
 #endif
 
-#include	<linux/input/lsm6ds3.h>
+#include	<linux/platform_data/lsm6ds3.h>
 #include	"lsm6ds3_core.h"
 
 #if defined (CONFIG_LSM6DS3_POLLING_MODE)
