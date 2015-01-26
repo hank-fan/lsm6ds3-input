@@ -927,7 +927,6 @@ static void lsm6ds3_irq_management(struct work_struct *input_work)
 		lsm6ds3_report_single_event(&cdata->sensors[LSM6DS3_STEP_COUNTER],
 								steps_c,
 								cdata->sensors[LSM6DS3_STEP_COUNTER].timestamp);
-		printk("reported %d steps\n", steps_c);
 		cdata->steps_c = steps_c;
 	}
 #endif
@@ -1521,7 +1520,6 @@ static ssize_t set_polling_rate(struct device *dev,
 	if (!(err < 0)) {
 		sdata->poll_interval = polling_rate;
 		sdata->ktime = ktime_set(0, MS_TO_NS(polling_rate));
-		printk("set ktime for sensor %s %d %d\n", sdata->name, MS_TO_NS(polling_rate), polling_rate);
 	}
 	mutex_unlock(&sdata->input_dev->mutex);
 
