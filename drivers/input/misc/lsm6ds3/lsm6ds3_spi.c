@@ -15,7 +15,7 @@
 #include <linux/input.h>
 #include <linux/types.h>
 
-#include	<linux/input/lsm6ds3.h>
+#include	<linux/platform_data/lsm6ds3.h>
 #include	"lsm6ds3_core.h"
 #define SENSORS_SPI_READ			0x80
 

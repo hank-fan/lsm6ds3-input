@@ -15,7 +15,7 @@
 #include <linux/input.h>
 #include <linux/types.h>
 
-#include	<linux/input/lsm6ds3.h>
+#include	<linux/platform_data/lsm6ds3.h>
 #include	"lsm6ds3_core.h"
 
 static int lsm6ds3_i2c_read(struct lsm6ds3_data *cdata, u8 reg_addr, int len,
