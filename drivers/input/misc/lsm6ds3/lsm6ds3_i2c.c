@@ -139,12 +139,19 @@ static const struct dev_pm_ops lsm6ds3_pm_ops = {
 #define LSM6DS3_PM_OPS		NULL
 #endif /* CONFIG_PM */
 
-static const struct i2c_device_id lsm6ds3_id_table[] = {
-	{LSM6DS3_ACC_GYR_DEV_NAME, 0},
-	{},
+#ifdef CONFIG_OF
+static const struct i2c_device_id lsm6ds3_ids[] = {
+	{"lsm6ds3", 0},
+	{ }
 };
+MODULE_DEVICE_TABLE(i2c, lsm6ds3_ids);
 
-MODULE_DEVICE_TABLE(i2c, lsm6ds3_id);
+static const struct of_device_id lsm6ds3_id_table[] = {
+	{.compatible = "st,lsm6ds3", },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, lsm6ds3_id_table);
+#endif
 
 static struct i2c_driver lsm6ds3_i2c_driver = {
 	.driver = {
@@ -152,12 +159,12 @@ static struct i2c_driver lsm6ds3_i2c_driver = {
 		.name = LSM6DS3_ACC_GYR_DEV_NAME,
 		.pm = LSM6DS3_PM_OPS,
 #ifdef CONFIG_OF
-		.of_match_table = of_match_ptr(lsm6ds3_id_table),
+		.of_match_table = lsm6ds3_id_table,
 #endif
 	},
 	.probe    = lsm6ds3_i2c_probe,
 	.remove   = lsm6ds3_i2c_remove,
-	.id_table = lsm6ds3_id_table,
+	.id_table = lsm6ds3_ids,
 };
 
 module_i2c_driver(lsm6ds3_i2c_driver);
