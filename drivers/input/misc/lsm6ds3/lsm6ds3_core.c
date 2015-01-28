@@ -1348,6 +1348,13 @@ static int lsm6ds3_init_sensors(struct lsm6ds3_data *cdata)
 		return err;
 
 	err = lsm6ds3_write_data_with_mask(cdata,
+					LSM6DS3_TIMER_EN_ADDR,
+					LSM6DS3_TIMER_EN_MASK,
+					LSM6DS3_EN_BIT, true);
+		if (err < 0)
+			return err;
+
+	err = lsm6ds3_write_data_with_mask(cdata,
 					LSM6DS3_BDU_ADDR,
 					LSM6DS3_BDU_MASK,
 					LSM6DS3_EN_BIT, true);
@@ -1625,6 +1632,74 @@ static ssize_t reset_steps(struct device *dev,
 	return count;
 }
 
+static ssize_t set_max_delivery_rate(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	u8 duration;
+	int err, err2;
+	unsigned int max_delivery_rate;
+	struct lsm6ds3_sensor_data *sdata = dev_get_drvdata(dev);
+
+	err = kstrtouint(buf, 10, &max_delivery_rate);
+	if (err < 0)
+		return -EINVAL;
+
+	if (max_delivery_rate == sdata->c_odr)
+		return size;
+
+	duration = max_delivery_rate / LSM6DS3_MIN_DURATION_MS;
+
+	mutex_lock(&sdata->cdata->bank_registers_lock);
+
+	err = lsm6ds3_write_data_with_mask(sdata->cdata,
+					LSM6DS3_FUNC_CFG_ACCESS_ADDR,
+					LSM6DS3_FUNC_CFG_REG2_MASK,
+					LSM6DS3_EN_BIT, false);
+	if (err < 0)
+		goto lsm6ds3_set_max_delivery_rate_mutex_unlock;
+
+	err = sdata->cdata->tf->write(sdata->cdata,
+					LSM6DS3_STEP_COUNTER_DURATION_ADDR,
+					1, &duration, false);
+	if (err < 0)
+		goto lsm6ds3_set_max_delivery_rate_restore_bank;
+
+	err = lsm6ds3_write_data_with_mask(sdata->cdata,
+					LSM6DS3_FUNC_CFG_ACCESS_ADDR,
+					LSM6DS3_FUNC_CFG_REG2_MASK,
+					LSM6DS3_DIS_BIT, false);
+	if (err < 0)
+		goto lsm6ds3_set_max_delivery_rate_restore_bank;
+
+	mutex_unlock(&sdata->cdata->bank_registers_lock);
+
+	sdata->c_odr = max_delivery_rate;
+
+	return size;
+
+lsm6ds3_set_max_delivery_rate_restore_bank:
+	do {
+		err2 = lsm6ds3_write_data_with_mask(sdata->cdata,
+					LSM6DS3_FUNC_CFG_ACCESS_ADDR,
+					LSM6DS3_FUNC_CFG_REG2_MASK,
+					LSM6DS3_DIS_BIT, false);
+
+		msleep(500);
+	} while (err2 < 0);
+
+lsm6ds3_set_max_delivery_rate_mutex_unlock:
+	mutex_unlock(&sdata->cdata->bank_registers_lock);
+	return err;
+}
+
+static ssize_t get_max_delivery_rate(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct lsm6ds3_sensor_data *sdata = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%d\n", sdata->c_odr);
+}
+
 static ssize_t get_sampling_frequency_avail(struct device *dev,
 									struct device_attribute *attr, char *buf)
 {
@@ -1667,6 +1742,8 @@ static DEVICE_ATTR(polling_rate, S_IWUSR | S_IRUGO, get_polling_rate,
 															set_polling_rate);
 #endif
 static DEVICE_ATTR(reset_steps, S_IWUSR, NULL, reset_steps);
+static DEVICE_ATTR(max_delivery_rate, S_IWUSR | S_IRUGO, get_max_delivery_rate,
+														set_max_delivery_rate);
 static DEVICE_ATTR(sampling_freq_avail, S_IRUGO, get_sampling_frequency_avail, NULL);
 static DEVICE_ATTR(scale_avail, S_IRUGO, get_scale_avail, NULL);
 
@@ -1713,6 +1790,7 @@ static struct attribute *lsm6ds3_step_c_attribute[] = {
 	&dev_attr_flush_fifo.attr,
 #endif
 	&dev_attr_reset_steps.attr,
+	&dev_attr_max_delivery_rate.attr,
 	NULL,
 };
 
@@ -1839,7 +1917,7 @@ int lsm6ds3_common_probe(struct lsm6ds3_data *cdata, int irq, u16 bustype)
 #endif
 		}
 		if (i == LSM6DS3_STEP_COUNTER) {
-			sdata->c_odr = LSM6DS3_FIFO_STEP_C_FREQ;
+			sdata->c_odr = LSM6DS3_MIN_DURATION_MS;
 		}
 
 		lsm6ds3_input_init(sdata, bustype, lsm6ds3_sensor_name[i].description);
