@@ -139,13 +139,14 @@ static const struct dev_pm_ops lsm6ds3_pm_ops = {
 #define LSM6DS3_PM_OPS		NULL
 #endif /* CONFIG_PM */
 
-#ifdef CONFIG_OF
+
 static const struct i2c_device_id lsm6ds3_ids[] = {
 	{"lsm6ds3", 0},
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, lsm6ds3_ids);
 
+#ifdef CONFIG_OF
 static const struct of_device_id lsm6ds3_id_table[] = {
 	{.compatible = "st,lsm6ds3", },
 	{ },
