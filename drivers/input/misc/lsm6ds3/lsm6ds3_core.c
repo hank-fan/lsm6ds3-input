@@ -889,6 +889,8 @@ irqreturn_t lsm6ds3_save_timestamp(int irq, void *private)
 	return IRQ_HANDLED;
 }
 
+static int lsm6ds3_disable_sensors(struct lsm6ds3_sensor_data *sdata);
+
 static void lsm6ds3_irq_management(struct work_struct *input_work)
 {
 	struct lsm6ds3_data *cdata;
@@ -941,6 +943,7 @@ static void lsm6ds3_irq_management(struct work_struct *input_work)
 			sdata->timestamp = cdata->timestamp;
 			lsm6ds3_report_single_event(sdata, 1, sdata->timestamp);
 			cdata->sign_motion_event_ready = false;
+			lsm6ds3_disable_sensors(sdata);
 		}
 	}
 
