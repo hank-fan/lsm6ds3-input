@@ -19,7 +19,7 @@
 #include	"lsm6ds3_core.h"
 
 static int lsm6ds3_i2c_read(struct lsm6ds3_data *cdata, u8 reg_addr, int len,
-														u8 *data, bool b_lock)
+							u8 *data, bool b_lock)
 {
 	int err = 0;
 	struct i2c_msg msg[2];
@@ -46,7 +46,7 @@ static int lsm6ds3_i2c_read(struct lsm6ds3_data *cdata, u8 reg_addr, int len,
 }
 
 static int lsm6ds3_i2c_write(struct lsm6ds3_data *cdata, u8 reg_addr, int len,
-														u8 *data, bool b_lock)
+							u8 *data, bool b_lock)
 {
 	int err = 0;
 	u8 send[len + 1];

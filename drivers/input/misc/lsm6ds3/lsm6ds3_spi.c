@@ -20,7 +20,7 @@
 #define SENSORS_SPI_READ			0x80
 
 static int lsm6ds3_spi_read(struct lsm6ds3_data *cdata, u8 reg_addr, int len,
-														u8 *data, bool b_lock)
+							u8 *data, bool b_lock)
 {
 	int err;
 
@@ -64,7 +64,7 @@ acc_spi_read_error:
 }
 
 static int lsm6ds3_spi_write(struct lsm6ds3_data *cdata, u8 reg_addr, int len,
-														u8 *data, bool b_lock)
+							u8 *data, bool b_lock)
 {
 	int err;
 

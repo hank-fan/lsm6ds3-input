@@ -12,10 +12,12 @@
 #define DRIVERS_INPUT_MISC_LSM6DS3_CORE_H_
 
 #define HZ_TO_PERIOD_NSEC(hz)		(1000 * 1000 * 1000 / ((u32)(hz)))
-#define MS_TO_US(x)			({ typeof(x) _x = (x); ((_x) * ((typeof(x)) 1000));})
+#define MS_TO_US(x)			({ typeof(x) _x = (x); ((_x) * \
+							((typeof(x)) 1000));})
 #define US_TO_NS(x)			(MS_TO_US(x))
 #define MS_TO_NS(x)			(US_TO_NS(MS_TO_US(x)))
-#define US_TO_MS(x)			({ typeof(x) _x = (x); ((_x) / ((typeof(x)) 1000));})
+#define US_TO_MS(x)			({ typeof(x) _x = (x); ((_x) / \
+							((typeof(x)) 1000));})
 #define NS_TO_US(x)			(US_TO_MS(x))
 #define NS_TO_MS(x)			(US_TO_MS(NS_TO_US(x)))
 
@@ -35,7 +37,7 @@ enum fifo_mode {
 	CONTINUOS,
 };
 
-#define DEF_ZERO					(0x00)
+#define DEF_ZERO			(0x00)
 
 #define LSM6DS3_ACC_OUT_X_L_ADDR	(0x28)
 #define LSM6DS3_GYR_OUT_X_L_ADDR	(0x22)
@@ -45,10 +47,10 @@ enum fifo_mode {
 #define LSM6DS3_GYR_ODR_ADDR		CTRL2_ADDR
 #define LSM6DS3_GYR_ODR_MASK		(0xf0)
 
-#define LSM6DS3_ACC_FS_ADDR			CTRL1_ADDR
-#define LSM6DS3_GYR_FS_ADDR			CTRL2_ADDR
+#define LSM6DS3_ACC_FS_ADDR		CTRL1_ADDR
+#define LSM6DS3_GYR_FS_ADDR		CTRL2_ADDR
 
-#define LSM6DS3_IF_INC_MASK			(0x04)
+#define LSM6DS3_IF_INC_MASK		(0x04)
 
 #define LSM6DS3_HPERF_GYR_ADDR		CTRL7_ADDR
 #define LSM6DS3_HPERF_GYR_MASK		(0x80)
@@ -57,42 +59,37 @@ enum fifo_mode {
 #define LSM6DS3_HPERF_ACC_MASK		(0x10)
 #define LSM6DS3_HPERF_ACC_ENABLE	(0x00)
 
-#define CTRL1_ADDR					(0x10)
-#define CTRL2_ADDR					(0x11)
-#define CTRL3_ADDR					(0x12)
-#define CTRL6_ADDR					(0x15)
-#define CTRL7_ADDR					(0x16)
+#define CTRL1_ADDR			(0x10)
+#define CTRL2_ADDR			(0x11)
+#define CTRL3_ADDR			(0x12)
+#define CTRL6_ADDR			(0x15)
+#define CTRL7_ADDR			(0x16)
 
 
 /* Sensitivity Acc */
-#define SENSITIVITY_ACC_2G			(61)	/** ug/LSB */
-#define SENSITIVITY_ACC_4G			(122)	/** ug/LSB */
-#define SENSITIVITY_ACC_8G			(244)	/** ug/LSB */
-#define SENSITIVITY_ACC_16G			(488)	/** ug/LSB */
+#define SENSITIVITY_ACC_2G		(61)	/** ug/LSB */
+#define SENSITIVITY_ACC_4G		(122)	/** ug/LSB */
+#define SENSITIVITY_ACC_8G		(244)	/** ug/LSB */
+#define SENSITIVITY_ACC_16G		(488)	/** ug/LSB */
 /* Sensitivity Gyr */
-#define SENSITIVITY_GYR_125			(437)	/** 10udps/LSB */
-#define SENSITIVITY_GYR_245			(875)	/** 10udps/LSB */
-#define SENSITIVITY_GYR_500			(1750)	/** 10udps/LSB */
+#define SENSITIVITY_GYR_125		(437)	/** 10udps/LSB */
+#define SENSITIVITY_GYR_245		(875)	/** 10udps/LSB */
+#define SENSITIVITY_GYR_500		(1750)	/** 10udps/LSB */
 #define SENSITIVITY_GYR_1000		(3500)	/** 10udps/LSB */
 #define SENSITIVITY_GYR_2000		(7000)	/** 10udps/LSB */
 
-#define FUZZ						(0)
-#define FLAT						(0)
+#define FUZZ				(0)
+#define FLAT				(0)
 
-#define ACC_OUT_MAX	((-10000)*(SENSITIVITY_ACC_16G))  /** max value acc [udps] */
-#define ACC_OUT_MIN	((10000)*(SENSITIVITY_ACC_16G))  /** min value acc [udps] */
-#define GYR_OUT_MAX	((10000)*(SENSITIVITY_GYR_2000)) /** max value gyr [10udps] */
-#define GYR_OUT_MIN	((-10000)*(SENSITIVITY_GYR_2000)) /** min value gyr [10udps] */
-
-#define INPUT_EVENT_TYPE			EV_MSC
-#define INPUT_EVENT_X				MSC_SERIAL
-#define INPUT_EVENT_Y				MSC_PULSELED
-#define INPUT_EVENT_Z				MSC_GESTURE
+#define INPUT_EVENT_TYPE		EV_MSC
+#define INPUT_EVENT_X			MSC_SERIAL
+#define INPUT_EVENT_Y			MSC_PULSELED
+#define INPUT_EVENT_Z			MSC_GESTURE
 #define INPUT_EVENT_TIME_MSB		MSC_SCAN
 #define INPUT_EVENT_TIME_LSB		MSC_MAX
 
-#define LSM6DS3_RX_MAX_LENGTH	(500)
-#define LSM6DS3_TX_MAX_LENGTH	(500)
+#define LSM6DS3_RX_MAX_LENGTH		(500)
+#define LSM6DS3_TX_MAX_LENGTH		(500)
 
 #define to_dev(obj) container_of(obj, struct device, kobj)
 
@@ -117,9 +114,9 @@ struct lsm6ds3_data;
 
 struct lsm6ds3_transfer_function {
 	int (*write) (struct lsm6ds3_data *cdata, u8 reg_addr, int len, u8 *data,
-																bool b_lock);
+								bool b_lock);
 	int (*read) (struct lsm6ds3_data *cdata, u8 reg_addr, int len, u8 *data,
-																bool b_lock);
+								bool b_lock);
 };
 
 struct lsm6ds3_sensor_data {
