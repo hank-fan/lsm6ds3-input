@@ -252,6 +252,7 @@ static const struct lsm6ds3_odr_table {
 struct lsm6ds3_fs_reg {
 	unsigned int gain;
 	u8 value;
+	int urv;
 };
 
 static struct lsm6ds3_fs_table {
@@ -263,25 +264,33 @@ static struct lsm6ds3_fs_table {
 		.addr = LSM6DS3_ACCEL_FS_ADDR,
 		.mask = LSM6DS3_ACCEL_FS_MASK,
 		.fs_avl[0] = { .gain = LSM6DS3_ACCEL_FS_2G_GAIN,
-					.value = LSM6DS3_ACCEL_FS_2G_VAL },
+					.value = LSM6DS3_ACCEL_FS_2G_VAL,
+					.urv = 2, },
 		.fs_avl[1] = { .gain = LSM6DS3_ACCEL_FS_4G_GAIN,
-					.value = LSM6DS3_ACCEL_FS_4G_VAL },
+					.value = LSM6DS3_ACCEL_FS_4G_VAL,
+					.urv = 4, },
 		.fs_avl[2] = { .gain = LSM6DS3_ACCEL_FS_8G_GAIN,
-					.value = LSM6DS3_ACCEL_FS_8G_VAL },
+					.value = LSM6DS3_ACCEL_FS_8G_VAL,
+					.urv = 8, },
 		.fs_avl[3] = { .gain = LSM6DS3_ACCEL_FS_16G_GAIN,
-					.value = LSM6DS3_ACCEL_FS_16G_VAL },
+					.value = LSM6DS3_ACCEL_FS_16G_VAL,
+					.urv = 16, },
 	},
 	[LSM6DS3_GYRO] = {
 		.addr = LSM6DS3_GYRO_FS_ADDR,
 		.mask = LSM6DS3_GYRO_FS_MASK,
 		.fs_avl[0] = { .gain = LSM6DS3_GYRO_FS_245_GAIN,
-					.value = LSM6DS3_GYRO_FS_245_VAL },
+					.value = LSM6DS3_GYRO_FS_245_VAL,
+					.urv = 245, },
 		.fs_avl[1] = { .gain = LSM6DS3_GYRO_FS_500_GAIN,
-					.value = LSM6DS3_GYRO_FS_500_VAL },
+					.value = LSM6DS3_GYRO_FS_500_VAL,
+					.urv = 500, },
 		.fs_avl[2] = { .gain = LSM6DS3_GYRO_FS_1000_GAIN,
-					.value = LSM6DS3_GYRO_FS_1000_VAL },
+					.value = LSM6DS3_GYRO_FS_1000_VAL,
+					.urv = 1000, },
 		.fs_avl[3] = { .gain = LSM6DS3_GYRO_FS_2000_GAIN,
-					.value = LSM6DS3_GYRO_FS_2000_VAL },
+					.value = LSM6DS3_GYRO_FS_2000_VAL,
+					.urv = 2000, },
 	}
 };
 
@@ -1721,13 +1730,53 @@ static ssize_t get_scale_avail(struct device *dev,
 	struct lsm6ds3_sensor_data *sdata = dev_get_drvdata(dev);
 
 	for (i = 0; i < LSM6DS3_FS_LIST_NUM; i++)
-		len += scnprintf(buf + len, PAGE_SIZE - len, "0.%06u ",
-								lsm6ds3_fs_table[sdata->sindex].fs_avl[i].gain);
+		len += scnprintf(buf + len, PAGE_SIZE - len, "%d ",
+			lsm6ds3_fs_table[sdata->sindex].fs_avl[i].urv);
 
 	buf[len - 1] = '\n';
 
 	return len;
 }
+
+static ssize_t get_cur_scale(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	int i;
+	struct lsm6ds3_sensor_data *sdata = dev_get_drvdata(dev);
+
+	for (i = 0; i < LSM6DS3_FS_LIST_NUM; i++)
+		if (sdata->c_gain == lsm6ds3_fs_table[sdata->sindex].fs_avl[i].gain)
+			break;
+
+	return sprintf(buf, "%d\n",
+			lsm6ds3_fs_table[sdata->sindex].fs_avl[i].urv);
+}
+
+static ssize_t set_cur_scale(struct device *dev, struct device_attribute *attr,
+						const char *buf, size_t count)
+{
+	int i, urv, err;
+	struct lsm6ds3_sensor_data *sdata = dev_get_drvdata(dev);
+
+	err = kstrtoint(buf, 10, &urv);
+	if (err < 0)
+		return err;
+
+	for (i = 0; i < LSM6DS3_FS_LIST_NUM; i++)
+		if (urv == lsm6ds3_fs_table[sdata->sindex].fs_avl[i].urv)
+			break;
+
+	if (i == LSM6DS3_FS_LIST_NUM)
+		return -EINVAL;
+
+	err = lsm6ds3_set_fs(sdata,
+				lsm6ds3_fs_table[sdata->sindex].fs_avl[i].gain);
+	if (err < 0)
+		return err;
+
+	return count;
+}
+
 
 static DEVICE_ATTR(enable, S_IWUSR | S_IRUGO, get_enable, set_enable);
 static DEVICE_ATTR(sampling_freq, S_IWUSR | S_IRUGO, get_sampling_freq,
@@ -1746,6 +1795,7 @@ static DEVICE_ATTR(max_delivery_rate, S_IWUSR | S_IRUGO, get_max_delivery_rate,
 														set_max_delivery_rate);
 static DEVICE_ATTR(sampling_freq_avail, S_IRUGO, get_sampling_frequency_avail, NULL);
 static DEVICE_ATTR(scale_avail, S_IRUGO, get_scale_avail, NULL);
+static DEVICE_ATTR(scale, S_IWUSR | S_IRUGO, get_cur_scale, set_cur_scale);
 
 static struct attribute *lsm6ds3_accel_attribute[] = {
 	&dev_attr_enable.attr,
@@ -1759,6 +1809,7 @@ static struct attribute *lsm6ds3_accel_attribute[] = {
 #endif
 	&dev_attr_sampling_freq_avail.attr,
 	&dev_attr_scale_avail.attr,
+	&dev_attr_scale.attr,
 	NULL,
 };
 
@@ -1774,6 +1825,7 @@ static struct attribute *lsm6ds3_gyro_attribute[] = {
 #endif
 	&dev_attr_sampling_freq_avail.attr,
 	&dev_attr_scale_avail.attr,
+	&dev_attr_scale.attr,
 	NULL,
 };
 
