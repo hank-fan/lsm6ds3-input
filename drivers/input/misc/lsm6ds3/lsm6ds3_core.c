@@ -308,7 +308,7 @@ static inline s64 lsm6ds3_get_time_ns(void)
 	 * calls getnstimeofday.
 	 * If hrtimers then up to ns accurate, if not microsecond.
 	 */
-	ktime_get_real_ts(&ts);
+	get_monotonic_boottime(&ts);
 
 	return timespec_to_ns(&ts);
 }
@@ -505,9 +505,10 @@ static void poll_function_work(struct work_struct *input_work)
 		xyz[0] *= sdata->c_gain;
 		xyz[1] *= sdata->c_gain;
 		xyz[2] *= sdata->c_gain;
-		lsm6ds3_report_3axes_event(sdata, xyz, lsm6ds3_get_time_ns());
+		lsm6ds3_report_3axes_event(sdata, xyz, sdata->timestamp);
 	}
 
+	sdata->timestamp += MS_TO_NS(sdata->poll_interval);
 	hrtimer_start(&sdata->hr_timer, sdata->ktime, HRTIMER_MODE_REL);
 }
 #endif
@@ -1111,6 +1112,7 @@ static int lsm6ds3_enable_sensors(struct lsm6ds3_sensor_data *sdata)
 
 #if defined (CONFIG_LSM6DS3_POLLING_MODE)
 		hrtimer_start(&sdata->hr_timer, sdata->ktime, HRTIMER_MODE_REL);
+		sdata->timestamp = lsm6ds3_get_time_ns();
 #endif
 
 		sdata->c_odr = lsm6ds3_odr_table.odr_avl[i].hz;
