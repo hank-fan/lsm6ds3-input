@@ -18,16 +18,4 @@ config INPUT_LSM6DS3_I2C
 config INPUT_LSM6DS3_SPI
 	bool "SPI"
 endchoice
-
-choice
-	prompt "LSM6DS3 mode selection"
-	default LSM6DS3_POLLING_MODE
-
-config LSM6DS3_POLLING_MODE
-	bool "Polling"
-
-config LSM6DS3_FIFO_MODE
-	bool "FIFO trigger"
-endchoice
-
 endif

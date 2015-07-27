@@ -14,9 +14,8 @@
 #include <linux/hrtimer.h>
 #include <linux/input.h>
 #include <linux/types.h>
-
-#include	<linux/platform_data/lsm6ds3.h>
-#include	"lsm6ds3_core.h"
+#include <linux/platform_data/lsm6ds3.h>
+#include "lsm6ds3_core.h"
 
 static int lsm6ds3_i2c_read(struct lsm6ds3_data *cdata, u8 reg_addr, int len,
 							u8 *data, bool b_lock)
@@ -106,7 +105,6 @@ free_data:
 
 static int lsm6ds3_i2c_remove(struct i2c_client *client)
 {
-	/* TODO: check the function */
 	struct lsm6ds3_data *cdata = i2c_get_clientdata(client);
 
 	lsm6ds3_common_remove(cdata, client->irq);

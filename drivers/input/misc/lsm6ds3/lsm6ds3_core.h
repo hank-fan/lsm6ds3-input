@@ -32,11 +32,6 @@ enum {
 	LSM6DS3_SENSORS_NUMB,
 };
 
-enum fifo_mode {
-	BYPASS = 0,
-	CONTINUOS,
-};
-
 #define DEF_ZERO			(0x00)
 
 #define LSM6DS3_ACC_OUT_X_L_ADDR	(0x28)
@@ -91,7 +86,7 @@ enum fifo_mode {
 #define LSM6DS3_RX_MAX_LENGTH		(500)
 #define LSM6DS3_TX_MAX_LENGTH		(500)
 
-#define to_dev(obj) container_of(obj, struct device, kobj)
+#define to_dev(obj) 			container_of(obj, struct device, kobj)
 
 struct reg_rw {
 	u8 const address;
@@ -122,55 +117,37 @@ struct lsm6ds3_transfer_function {
 struct lsm6ds3_sensor_data {
 	struct lsm6ds3_data *cdata;
 	const char* name;
-	s64 timestamp;
+	int64_t timestamp;
 	u8 enabled;
 	u32 c_odr;
 	u32 c_gain;
 	u8 sindex;
 	u8 sample_to_discard;
 
-	u16 fifo_length;
-	u8 sample_in_pattern;
-	s64 deltatime;
-
 	struct input_dev *input_dev;
-#if defined (CONFIG_LSM6DS3_POLLING_MODE)
 	unsigned int poll_interval;
 	struct hrtimer hr_timer;
 	struct work_struct input_work;
 	ktime_t ktime;
-#endif
 };
 
 struct lsm6ds3_data {
 	const char *name;
-
 	bool reset_steps;
 	bool sign_motion_event_ready;
 	u16 steps_c;
-
 	u8 drdy_int_pin;
-	u8 gyro_selftest_status;
-	u8 accel_selftest_status;
+	int irq;
+	int64_t timestamp;
 
 	struct mutex lock;
-	int irq;
-
-	s64 timestamp;
 	struct work_struct input_work;
 	struct device *dev;
 	struct lsm6ds3_sensor_data sensors[LSM6DS3_SENSORS_NUMB];
-
 	struct mutex bank_registers_lock;
-	struct mutex fifo_lock;
-	u16 fifo_data_size;
-	u8 *fifo_data_buffer;
-	u16 fifo_threshold;
-
 	const struct lsm6ds3_transfer_function *tf;
 	struct lsm6ds3_transfer_buffer tb;
 };
-
 
 int lsm6ds3_common_probe(struct lsm6ds3_data *cdata, int irq, u16 bustype);
 void lsm6ds3_common_remove(struct lsm6ds3_data *cdata, int irq);
