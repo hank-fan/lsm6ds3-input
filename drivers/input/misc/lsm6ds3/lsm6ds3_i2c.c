@@ -4,7 +4,7 @@
  * Copyright 2014 STMicroelectronics Inc.
  *
  * Giuseppe Barba <giuseppe.barba@st.com>
- * v 1.2.0
+ * v 1.2.1
  * Licensed under the GPL-2.
  */
 
