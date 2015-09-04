@@ -40,6 +40,7 @@
 #define LSM6DS3_MD1_ADDR			0x5e
 #define LSM6DS3_ODR_LIST_NUM			5
 #define LSM6DS3_ODR_POWER_OFF_VAL		0x00
+#define LSM6DS3_ODR_13HZ_VAL			0x01
 #define LSM6DS3_ODR_26HZ_VAL			0x02
 #define LSM6DS3_ODR_52HZ_VAL			0x03
 #define LSM6DS3_ODR_104HZ_VAL			0x04
@@ -230,11 +231,12 @@ static const struct lsm6ds3_odr_table {
 	.mask[LSM6DS3_ACCEL] = LSM6DS3_ACC_ODR_MASK,
 	.addr[LSM6DS3_GYRO] = LSM6DS3_GYR_ODR_ADDR,
 	.mask[LSM6DS3_GYRO] = LSM6DS3_GYR_ODR_MASK,
-	.odr_avl[0] = { .hz = 26, .value = LSM6DS3_ODR_26HZ_VAL },
-	.odr_avl[1] = { .hz = 52, .value = LSM6DS3_ODR_52HZ_VAL },
-	.odr_avl[2] = { .hz = 104, .value = LSM6DS3_ODR_104HZ_VAL },
-	.odr_avl[3] = { .hz = 208, .value = LSM6DS3_ODR_208HZ_VAL },
-	.odr_avl[4] = { .hz = 416, .value = LSM6DS3_ODR_416HZ_VAL },
+	.odr_avl[0] = { .hz = 13, .value = LSM6DS3_ODR_13HZ_VAL },
+	.odr_avl[1] = { .hz = 26, .value = LSM6DS3_ODR_26HZ_VAL },
+	.odr_avl[2] = { .hz = 52, .value = LSM6DS3_ODR_52HZ_VAL },
+	.odr_avl[3] = { .hz = 104, .value = LSM6DS3_ODR_104HZ_VAL },
+	.odr_avl[4] = { .hz = 208, .value = LSM6DS3_ODR_208HZ_VAL },
+	.odr_avl[5] = { .hz = 416, .value = LSM6DS3_ODR_416HZ_VAL },
 };
 
 struct lsm6ds3_fs_reg {
@@ -382,7 +384,7 @@ static void lsm6ds3_report_3axes_event(struct lsm6ds3_sensor_data *sdata,
 static void lsm6ds3_report_single_event(struct lsm6ds3_sensor_data *sdata,
 							s32 data, int64_t timestamp)
 {
-	struct input_dev  *input = sdata->input_dev;
+	struct input_dev *input = sdata->input_dev;
 
 	if (!sdata->enabled)
 		return;
