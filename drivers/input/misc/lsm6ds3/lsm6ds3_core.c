@@ -1567,5 +1567,10 @@ int lsm6ds3_common_resume(struct lsm6ds3_data *cdata)
 	return 0;
 }
 EXPORT_SYMBOL(lsm6ds3_common_resume);
+
+MODULE_DESCRIPTION("STMicroelectronics lsm6ds3 i2c driver");
+MODULE_AUTHOR("Giuseppe Barba");
+MODULE_LICENSE("GPL v2");
+
 #endif /* CONFIG_PM */
 

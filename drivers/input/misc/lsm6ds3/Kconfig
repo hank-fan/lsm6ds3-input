@@ -1,21 +1,17 @@
 config INPUT_LSM6DS3
          tristate "STMicroelectronics LSM6DS3 sensor"
-         depends on I2C && SYSFS
+         depends on (I2C || SPI_MASTER) && SYSFS
+		 select INPUT_LSM6DS3_I2C if I2C
+		 select INPUT_LSM6DS3_SPI if SPI
          help
            This driver support the STMicroelectronics LSM6DS3 sensor.
 
            To compile this driver as a module, choose M here. The module
 	   will be called lsm6ds3.
 
-if INPUT_LSM6DS3
-choice
-	prompt "LSM6DS3 bus selection"
-	default INPUT_LSM6DS3_I2C
-
 config INPUT_LSM6DS3_I2C
-	bool "I2C"
+	tristate
 
 config INPUT_LSM6DS3_SPI
-	bool "SPI"
-endchoice
-endif
+	tristate
+
